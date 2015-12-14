@@ -36,7 +36,7 @@ internal extension Request {
 	}
 }
 
-public class WebSocketsServer: ContextResponderType {
+public class WebSocketServer: ContextResponderType {
 	private var sockets: [WebSocket] = []
 	private let websocketHandler: WebSocket -> Void
 
