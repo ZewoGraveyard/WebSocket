@@ -39,7 +39,7 @@ import WebSocket
 
 let webSocketServer = WebSocketServer { webSocket in
 	print("WebSocket connected")
-	webSocket.listener = { event in
+	webSocket.listen { event in
 		switch event {
 		case .Binary(let data):
 			webSocket.send(data)
