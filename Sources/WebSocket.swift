@@ -73,7 +73,11 @@ public class WebSocket {
 		return self.context.request
 	}
 
-	public var listener: (WebSocketEvent -> Void)?
+	private var listener: (WebSocketEvent -> Void)?
+
+	public func listen(listener: WebSocketEvent -> Void) {
+		self.listener = listener
+	}
 
 	public init(context: Context, stream: StreamType) {
 		self.context = context

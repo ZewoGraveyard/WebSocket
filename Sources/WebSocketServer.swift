@@ -36,33 +36,40 @@ internal extension Request {
 	}
 }
 
-public class WebSocketsServer {
-
+public class WebSocketsServer: ContextResponderType {
 	private var sockets: [WebSocket] = []
+	private let websocketHandler: WebSocket -> Void
 
-	public init() {
-
+	public init(websocketHandler: WebSocket -> Void) {
+		self.websocketHandler =  websocketHandler
 	}
 
-	public func handleContext(context: Context, websocketHandler: WebSocket -> Void) -> Bool {
-		guard context.request.isWebSocket else { return false }
-		guard let wsKey = context.request.getHeader("sec-websocket-key") else { return false }
+	public func respond(context: Context) {
+		guard context.request.isWebSocket else {
+			return context.respond(Response(status: .BadRequest))
+		}
+
+		guard let wsKey = context.request.getHeader("sec-websocket-key") else {
+			return context.respond(Response(status: .BadRequest))
+		}
 
 		let acceptKey = Base64.encodeString(bytes: SHA1.bytes(wsKey + WebSocket.KeyGuid))
-		let headers = ["Connection": "Upgrade", "Upgrade": "websocket", "Sec-WebSocket-Accept": acceptKey]
+		let headers = [
+			"Connection": "Upgrade",
+			"Upgrade": "websocket",
+			"Sec-WebSocket-Accept": acceptKey
+		]
 		let response = Response(status: .SwitchingProtocols, headers: headers)
+		
 		context.upgrade(response) { streamResult in
 			do {
 				let stream = try streamResult()
 				let socket = WebSocket(context: context, stream: stream)
 				self.sockets.append(socket)
-				websocketHandler(socket)
+				self.websocketHandler(socket)
 			} catch {
 				print("upgrade error: \(error)")
 			}
 		}
-
-		return true
-	}
-
+    }
 }

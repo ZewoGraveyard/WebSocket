@@ -1,16 +1,16 @@
-WebSockets
-==========
+WebSocket
+=========
 
 [![Swift 2.2](https://img.shields.io/badge/Swift-2.1-orange.svg?style=flat)](https://developer.apple.com/swift/)
 [![Platforms Linux](https://img.shields.io/badge/Platforms-Linux-lightgray.svg?style=flat)](https://developer.apple.com/swift/)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://tldrlegal.com/license/mit-license)
 [![Slack Status](https://zewo-slackin.herokuapp.com/badge.svg)](https://zewo-slackin.herokuapp.com)
 
-**WebSockets** is a WebSockets server for **Swift 2.2**.
+**WebSocket** server for **Swift 2.2**.
 
 ## Dependencies
 
-**WebSockets** is made of:
+**WebSocket** is made of:
 
 - [HTTP](https://github.com/Zewo/HTTP) - HTTP request/response
 - [Venice](https://github.com/Zewo/Venice) - CSP and TCP/IP
@@ -21,9 +21,9 @@ WebSockets
 
 ## Usage
 
-### WebSockets + Epoch
+### WebSocket + Epoch
 
-You'll need an HTTP server to make this work. **WebSockets** and [Epoch](https://www.github.com/Zewo/Epoch) were designed to work with each other seamlessly.
+You'll need an HTTP server. **WebSocket** and [Epoch](https://www.github.com/Zewo/Epoch) were designed to work with each other seamlessly.
 
 ```swift
 #if os(Linux)
@@ -35,13 +35,11 @@ import HTTP
 import Epoch
 import CHTTPParser
 import CLibvenice
-import WebSockets
+import WebSocket
 
-let webSocketsServer = WebSocketsServer()
-
-func onWebSocket(webSocket: WebSocket) {
-	print("webSocket conntected")
-	webSocket.listener = { event in
+let webSocketServer = WebSocketServer { webSocket in
+	print("WebSocket connected")
+	webSocket.listen { event in
 		switch event {
 		case .Binary(let data):
 			webSocket.send(data)
@@ -52,25 +50,18 @@ func onWebSocket(webSocket: WebSocket) {
 		case .Pong(let data):
 			break
 		case .Close(let code, let reason):
-			print("webSocket closed")
+			print("WebSocket closed")
 		}
 	}
 }
 
-struct Responder: ContextResponderType {
-	func respond(context: Context) {
-		if webSocketsServer.handleContext(context, websocketHandler: onWebSocket) { return }
-		context.respond(Response(status: .OK, body: "Hello from Swift"))
-	}
-}
-
-let server = Server(port: 8080, responder: Responder())
+let server = Server(port: 8080, responder: webSocketServer)
 server.start()
 ```
 
 ## Installation
 
-**WebSockets** depends on the C lib [libvenice](https://github.com/Zewo/libvenice). Install it through:
+**WebSocket** depends on the C lib [libvenice](https://github.com/Zewo/libvenice). Install it through:
 
 ### Homebrew 
 ```bash
@@ -93,14 +84,14 @@ $ (sudo) make install
 
 > You only have to install the C libs once.
 
-Then add `WebSockets` to your `Package.swift`
+Then add `WebSocket` to your `Package.swift`
 
 ```swift
 import PackageDescription
 
 let package = Package(
 	dependencies: [
-		.Package(url: "https://github.com/Zewo/WebSockets.git", majorVersion: 0, minor: 1)
+		.Package(url: "https://github.com/Zewo/WebSocket.git", majorVersion: 0, minor: 1)
 	]
 )
 ```
@@ -114,4 +105,4 @@ Join us on [Slack](http://slack.zewo.io/).
 License
 -------
 
-**WebSockets** is released under the MIT license. See LICENSE for details.
+**WebSocket** is released under the MIT license. See LICENSE for details.
