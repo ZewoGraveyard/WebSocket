@@ -53,7 +53,10 @@ public class WebSocketServer: ContextResponderType {
 			return context.respond(Response(status: .BadRequest))
 		}
 
-		let acceptKey = Base64.encodeString(bytes: SHA1.bytes(wsKey + WebSocket.KeyGuid))
+		guard let acceptKey = Base64.encode(Data(uBytes: SHA1.bytes(wsKey + WebSocket.KeyGuid))).string else {
+			return context.respond(Response(status: .InternalServerError))
+		}
+		
 		let headers = [
 			"Connection": "Upgrade",
 			"Upgrade": "websocket",
