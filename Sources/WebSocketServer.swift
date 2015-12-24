@@ -25,8 +25,8 @@
 import Core
 import HTTP
 
-internal extension Request {
-	internal var isWebSocket: Bool {
+public extension Request {
+	public var isWebSocket: Bool {
 		if let connection = getHeader("connection"), upgrade = getHeader("upgrade"), version = getHeader("sec-websocket-version"), _ = getHeader("sec-websocket-key")
 			where connection.lowercaseString == "upgrade" && upgrade.lowercaseString == "websocket" && version == "13" {
 				return true
