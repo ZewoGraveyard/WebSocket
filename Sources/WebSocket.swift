@@ -224,7 +224,8 @@ public class WebSocket {
 				guard let maskKey = frame.maskKey else { return -1 }
 				_data = []
 				for byte in data[0..<Int(consumeLength)] {
-					_data.append(byte ^ maskKey[self.frames.unsafeLast.maskOffset++ % 4])
+					_data.append(byte ^ maskKey[self.frames.unsafeLast.maskOffset % 4])
+					self.frames.unsafeLast.maskOffset += 1
 				}
 			} else {
 				_data = data
