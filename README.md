@@ -17,13 +17,13 @@ WebSocket
 
 ## Related Projects
 
-- [Epoch](https://github.com/Zewo/Epoch) - Venice based HTTP server
+- [Epoch](https://github.com/Zewo/Zewo) - Venice based HTTP server
 
 ## Usage
 
 ### WebSocket + Epoch
 
-You'll need an HTTP server. **WebSocket** and [Epoch](https://www.github.com/Zewo/Epoch) were designed to work with each other seamlessly.
+You'll need an HTTP server. **WebSocket** and [Epoch](https://github.com/Zewo/Zewo) were designed to work with each other seamlessly.
 
 ```swift
 #if os(Linux)
