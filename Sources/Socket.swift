@@ -1,4 +1,4 @@
-// WebSocket.swift
+// Socket.swift
 //
 // The MIT License (MIT)
 //
@@ -55,7 +55,7 @@ internal extension Data {
 	}
 }
 
-public class WebSocket {
+public class Socket {
 	
 	public enum Error: ErrorType {
 		case NoFrame
@@ -470,7 +470,7 @@ public class WebSocket {
     }
 
     static func accept(key: String) -> String? {
-		return try? Base64.encode(Hash.hash(.SHA1, message: (key + WebSocket.GUID).data))
+		return try? Base64.encode(Hash.hash(.SHA1, message: (key + GUID).data))
     }
 	
 }

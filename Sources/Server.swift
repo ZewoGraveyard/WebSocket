@@ -30,9 +30,9 @@ public struct Server: ResponderType, MiddlewareType, ChainType {
 		case NoResponse
 	}
 	
-	private let onConnect: WebSocket throws -> Void
+	private let onConnect: Socket throws -> Void
 
-	public init(onConnect: WebSocket throws -> Void) {
+	public init(onConnect: Socket throws -> Void) {
 		self.onConnect =  onConnect
 	}
 	
@@ -43,7 +43,7 @@ public struct Server: ResponderType, MiddlewareType, ChainType {
 			return try chain.proceed(request)
 		}
 		
-		guard let accept = WebSocket.accept(key) else {
+		guard let accept = Socket.accept(key) else {
 			return Response(status: .InternalServerError)
 		}
 		
@@ -59,7 +59,7 @@ public struct Server: ResponderType, MiddlewareType, ChainType {
 				throw Error.NoResponse
 			}
 			
-			let webSocket = WebSocket(stream: stream, mode: .Server, request: request, response: response)
+			let webSocket = Socket(stream: stream, mode: .Server, request: request, response: response)
 			try self.onConnect(webSocket)
 			try webSocket.loop()
 		}

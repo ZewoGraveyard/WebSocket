@@ -35,9 +35,9 @@ public struct Client {
 	}
 	
     private let client: ClientType
-    private let onConnect: WebSocket throws -> Void
+    private let onConnect: Socket throws -> Void
 
-	public init(ssl: Bool, host: String, port: Int, onConnect: WebSocket throws -> Void) throws {
+	public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
 		if ssl {
 			self.client = try HTTPSClient.Client(host: host, port: port)
 		} else {
@@ -80,11 +80,11 @@ public struct Client {
                 throw Error.ResponseNotWebsocket
             }
 
-            guard let accept = response.webSocketAccept where accept == WebSocket.accept(key) else {
+            guard let accept = response.webSocketAccept where accept == Socket.accept(key) else {
                 throw Error.ResponseNotWebsocket
 			}
 
-			let webSocket = WebSocket(stream: stream, mode: .Client, request: request, response: response)
+			let webSocket = Socket(stream: stream, mode: .Client, request: request, response: response)
             try self.onConnect(webSocket)
             try webSocket.loop()
         }
