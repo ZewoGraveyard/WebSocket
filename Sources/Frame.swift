@@ -1,4 +1,4 @@
-// WebSocketFrame.swift
+// Frame.swift
 //
 // The MIT License (MIT)
 //
@@ -41,18 +41,18 @@
 //	|                     Payload Data continued ...                |
 //	+---------------------------------------------------------------+
 
-internal struct WebSocketFrame {
+struct Frame {
+	
+	static let FinMask			: UInt8 = 0b10000000
+	static let Rsv1Mask			: UInt8 = 0b01000000
+	static let Rsv2Mask			: UInt8 = 0b00100000
+	static let Rsv3Mask			: UInt8 = 0b00010000
+	static let OpCodeMask		: UInt8 = 0b00001111
 
-	internal static let FinMask			: UInt8 = 0b10000000
-	internal static let Rsv1Mask		: UInt8 = 0b01000000
-	internal static let Rsv2Mask		: UInt8 = 0b00100000
-	internal static let Rsv3Mask		: UInt8 = 0b00010000
-	internal static let OpCodeMask		: UInt8 = 0b00001111
+	static let MaskMask			: UInt8 = 0b10000000
+	static let PayloadLenMask	: UInt8 = 0b01111111
 
-	internal static let MaskMask		: UInt8 = 0b10000000
-	internal static let PayloadLenMask	: UInt8 = 0b01111111
-
-	internal enum OpCode: UInt8 {
+	enum OpCode: UInt8 {
 		case Continuation	= 0x0
 		case Text			= 0x1
 		case Binary			= 0x2
@@ -74,8 +74,8 @@ internal struct WebSocketFrame {
 	var opCode: OpCode
 	var masked: Bool
 	var payloadLength: UInt64
-	var maskKey: [UInt8]?
-	var data: [UInt8] = []
+	var maskKey: Data
+	var data: Data = []
 
 	var payloadRemainingLength: UInt64
 	var headerExtraLength: Int
@@ -91,27 +91,28 @@ internal struct WebSocketFrame {
 		self.payloadLength = payloadLength
 		self.payloadRemainingLength = payloadLength
 		self.headerExtraLength = headerExtraLength
+		self.maskKey = nil
 	}
 
-	init(fin: Bool = true, rsv1: Bool = false, rsv2: Bool = false, rsv3: Bool = false, opCode: OpCode, data: [UInt8] = []) {
+	init(fin: Bool = true, rsv1: Bool = false, rsv2: Bool = false, rsv3: Bool = false, opCode: OpCode, data: Data = [], maskKey: Data = nil) {
 		self.fin = fin
 		self.rsv1 = rsv1
 		self.rsv2 = rsv2
 		self.rsv3 = rsv3
 		self.opCode = opCode
-		self.masked = false
+		self.masked = maskKey != nil
 		self.data = data
 		self.payloadLength = UInt64(data.count)
-
+		
 		self.payloadRemainingLength = 0
 		self.headerExtraLength = 0
-		self.maskKey = nil
+		self.maskKey = maskKey
 	}
 
-	func getData() -> [UInt8] {
-		var data: [UInt8] = []
+	func getData() -> Data {
+		var data: Data = []
 
-		data.append(((fin ? 1 : 0) << 7) | ((rsv1 ? 1 : 0) << 6) | ((rsv2 ? 1 : 0) << 5) | ((rsv3 ? 1 : 0) << 4) | opCode.rawValue)
+		data.appendByte(((fin ? 1 : 0) << 7) | ((rsv1 ? 1 : 0) << 6) | ((rsv2 ? 1 : 0) << 5) | ((rsv3 ? 1 : 0) << 4) | opCode.rawValue)
 
 		let payloadLen: UInt8
 		if payloadLength > UInt64(UInt16.max) {
@@ -121,12 +122,17 @@ internal struct WebSocketFrame {
 		} else {
 			payloadLen = UInt8(payloadLength)
 		}
-		data.append(((masked ? 1 : 0) << 7) | payloadLen)
+        
+		data.appendByte(((masked ? 1 : 0) << 7) | payloadLen)
 
 		if payloadLen == 127 {
-			data += payloadLength.bytes()
+			data += Data(number: payloadLength)
 		} else if payloadLen == 126 {
-			data += UInt16(payloadLength).bytes()
+			data += Data(number: UInt16(payloadLength))
+		}
+		
+		if masked {
+			data += maskKey
 		}
 
 		data += self.data
