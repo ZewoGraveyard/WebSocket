@@ -355,8 +355,11 @@ public class Socket {
 				state = .Header
 				try processFrames()
 			}
-			
-			frames[frames.endIndex.predecessor()] = frame
+            
+            let ind = frames.endIndex.predecessor()
+            if ind >= 0 && ind < frames.count {
+                frames[ind] = frame
+            }
 
 			return frame.headerExtraLength
 		case .Payload:
@@ -392,7 +395,7 @@ public class Socket {
 				try processFrames()
 			}
 			let ind = frames.endIndex.predecessor()
-            if ind != -1 {
+            if ind >= 0 && ind < frames.count {
                 frames[ind] = frame
             }
 			return Int(consumeLength)
