@@ -40,7 +40,7 @@ let webSocketServer = WebSocket.Server { webSocket in
 }
 
 
-try! HTTPServer.Server(address: "127.0.0.1", port: 8180, responder: webSocketServer).start()
+try HTTPServer.Server(address: "127.0.0.1", port: 8180, responder: webSocketServer).start()
 ```
 
 ## Community
