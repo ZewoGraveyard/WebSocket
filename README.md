@@ -18,6 +18,31 @@ let package = Package(
 )
 ```
 
+
+## Example
+```swift
+    
+import WebSocket
+import HTTPServer
+    
+let webSocketServer = WebSocket.Server { webSocket in
+    print("connected")
+    
+    webSocket.onBinary { data in
+        print("data \(data)")
+        try webSocket.send(data)
+    }
+
+    webSocket.onText { text in
+        print("data \(text)")
+        try webSocket.send(text)
+    }
+}
+
+
+try! HTTPServer.Server(address: "127.0.0.1", port: 8180, responder: webSocketServer).start()
+```
+
 ## Community
 
 [![Slack](http://s13.postimg.org/ybwy92ktf/Slack.png)](http://slack.zewo.io)
