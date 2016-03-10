@@ -391,9 +391,10 @@ public class Socket {
 				state = .Header
 				try processFrames()
 			}
-			
-			frames[frames.endIndex.predecessor()] = frame
-
+			let ind = frames.endIndex.predecessor()
+            if ind != -1 {
+                frames[ind] = frame
+            }
 			return Int(consumeLength)
 		}
 	}
