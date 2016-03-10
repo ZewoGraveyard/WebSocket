@@ -28,24 +28,24 @@
 @_exported import OpenSSL
 
 public struct Client {
-	
-	public enum Error: ErrorType {
-		case NoRequest
-		case ResponseNotWebsocket
-	}
-	
+    
+    public enum Error: ErrorType {
+        case NoRequest
+        case ResponseNotWebsocket
+    }
+    
     private let client: ClientType
     private let onConnect: Socket throws -> Void
-
-	public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
-		if ssl {
-			self.client = try HTTPSClient.Client(host: host, port: port)
-		} else {
-			self.client = try HTTPClient.Client(host: host, port: port)
-		}
+    
+    public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
+        if ssl {
+            self.client = try HTTPSClient.Client(host: host, port: port)
+        } else {
+            self.client = try HTTPClient.Client(host: host, port: port)
+        }
         self.onConnect =  onConnect
     }
-
+    
     public func connectInBackground(path: String, failure: ErrorType -> Void = Client.logError) {
         co {
             do {
@@ -55,42 +55,42 @@ public struct Client {
             }
         }
     }
-
+    
     static func logError(error: ErrorType) {
         print(error)
     }
-
+    
     public func connect(path: String) throws {
-		let key = try Base64.encode(Random.getBytes(16))
-		
+        let key = try Base64.encode(Random.getBytes(16))
+        
         let headers: Headers = [
             "Connection": "Upgrade",
             "Upgrade": "websocket",
             "Sec-WebSocket-Version": "13",
             "Sec-WebSocket-Key": key,
-        ]
-		
-		var _request: Request?
-		let request = try Request(method: .GET, uri: path, headers: headers) { response, stream in
-			guard let request = _request else {
-				throw Error.NoRequest
-			}
-			
+            ]
+        
+        var _request: Request?
+        let request = try Request(method: .GET, uri: path, headers: headers) { response, stream in
+            guard let request = _request else {
+                throw Error.NoRequest
+            }
+            
             guard response.status == .SwitchingProtocols && response.isWebSocket else {
                 throw Error.ResponseNotWebsocket
             }
-
+            
             guard let accept = response.webSocketAccept where accept == Socket.accept(key) else {
                 throw Error.ResponseNotWebsocket
-			}
-
-			let webSocket = Socket(stream: stream, mode: .Client, request: request, response: response)
+            }
+            
+            let webSocket = Socket(stream: stream, mode: .Client, request: request, response: response)
             try self.onConnect(webSocket)
             try webSocket.loop()
         }
-		_request = request
-
+        _request = request
+        
         try client.send(request)
     }
-	
+    
 }

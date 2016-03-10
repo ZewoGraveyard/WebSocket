@@ -42,102 +42,102 @@
 //	+---------------------------------------------------------------+
 
 struct Frame {
-	
-	static let FinMask			: UInt8 = 0b10000000
-	static let Rsv1Mask			: UInt8 = 0b01000000
-	static let Rsv2Mask			: UInt8 = 0b00100000
-	static let Rsv3Mask			: UInt8 = 0b00010000
-	static let OpCodeMask		: UInt8 = 0b00001111
-
-	static let MaskMask			: UInt8 = 0b10000000
-	static let PayloadLenMask	: UInt8 = 0b01111111
-
-	enum OpCode: UInt8 {
-		case Continuation	= 0x0
-		case Text			= 0x1
-		case Binary			= 0x2
-		// 0x3 -> 0x7 reserved
-		case Close			= 0x8
-		case Ping			= 0x9
-		case Pong			= 0xA
-		// 0xB -> 0xF reserved
-
-		var isControl: Bool {
-			return self == .Close || self == .Ping || self == .Pong
-		}
-	}
-
-	var fin: Bool
-	var rsv1: Bool
-	var rsv2: Bool
-	var rsv3: Bool
-	var opCode: OpCode
-	var masked: Bool
-	var payloadLength: UInt64
-	var maskKey: Data
-	var data: Data = []
-
-	var payloadRemainingLength: UInt64
-	var headerExtraLength: Int
-	var maskOffset = 0
-
-	init(fin: Bool, rsv1: Bool, rsv2: Bool, rsv3: Bool, opCode: OpCode, masked: Bool, payloadLength: UInt64, headerExtraLength: Int) {
-		self.fin = fin
-		self.rsv1 = rsv1
-		self.rsv2 = rsv2
-		self.rsv3 = rsv3
-		self.opCode = opCode
-		self.masked = masked
-		self.payloadLength = payloadLength
-		self.payloadRemainingLength = payloadLength
-		self.headerExtraLength = headerExtraLength
-		self.maskKey = nil
-	}
-
-	init(fin: Bool = true, rsv1: Bool = false, rsv2: Bool = false, rsv3: Bool = false, opCode: OpCode, data: Data = [], maskKey: Data = nil) {
-		self.fin = fin
-		self.rsv1 = rsv1
-		self.rsv2 = rsv2
-		self.rsv3 = rsv3
-		self.opCode = opCode
-		self.masked = maskKey != nil
-		self.data = data
-		self.payloadLength = UInt64(data.count)
-		
-		self.payloadRemainingLength = 0
-		self.headerExtraLength = 0
-		self.maskKey = maskKey
-	}
-
-	func getData() -> Data {
-		var data: Data = []
-
-		data.appendByte(((fin ? 1 : 0) << 7) | ((rsv1 ? 1 : 0) << 6) | ((rsv2 ? 1 : 0) << 5) | ((rsv3 ? 1 : 0) << 4) | opCode.rawValue)
-
-		let payloadLen: UInt8
-		if payloadLength > UInt64(UInt16.max) {
-			payloadLen = 127
-		} else if payloadLength >= 126 {
-			payloadLen = 126
-		} else {
-			payloadLen = UInt8(payloadLength)
-		}
+    
+    static let FinMask			: UInt8 = 0b10000000
+    static let Rsv1Mask			: UInt8 = 0b01000000
+    static let Rsv2Mask			: UInt8 = 0b00100000
+    static let Rsv3Mask			: UInt8 = 0b00010000
+    static let OpCodeMask		: UInt8 = 0b00001111
+    
+    static let MaskMask			: UInt8 = 0b10000000
+    static let PayloadLenMask	: UInt8 = 0b01111111
+    
+    enum OpCode: UInt8 {
+        case Continuation	= 0x0
+        case Text			= 0x1
+        case Binary			= 0x2
+        // 0x3 -> 0x7 reserved
+        case Close			= 0x8
+        case Ping			= 0x9
+        case Pong			= 0xA
+        // 0xB -> 0xF reserved
         
-		data.appendByte(((masked ? 1 : 0) << 7) | payloadLen)
-
-		if payloadLen == 127 {
-			data += Data(number: payloadLength)
-		} else if payloadLen == 126 {
-			data += Data(number: UInt16(payloadLength))
-		}
-		
-		if masked {
-			data += maskKey
-		}
-
-		data += self.data
-
-		return data
-	}
-
+        var isControl: Bool {
+            return self == .Close || self == .Ping || self == .Pong
+        }
+    }
+    
+    var fin: Bool
+    var rsv1: Bool
+    var rsv2: Bool
+    var rsv3: Bool
+    var opCode: OpCode
+    var masked: Bool
+    var payloadLength: UInt64
+    var maskKey: Data
+    var data: Data = []
+    
+    var payloadRemainingLength: UInt64
+    var headerExtraLength: Int
+    var maskOffset = 0
+    
+    init(fin: Bool, rsv1: Bool, rsv2: Bool, rsv3: Bool, opCode: OpCode, masked: Bool, payloadLength: UInt64, headerExtraLength: Int) {
+        self.fin = fin
+        self.rsv1 = rsv1
+        self.rsv2 = rsv2
+        self.rsv3 = rsv3
+        self.opCode = opCode
+        self.masked = masked
+        self.payloadLength = payloadLength
+        self.payloadRemainingLength = payloadLength
+        self.headerExtraLength = headerExtraLength
+        self.maskKey = nil
+    }
+    
+    init(fin: Bool = true, rsv1: Bool = false, rsv2: Bool = false, rsv3: Bool = false, opCode: OpCode, data: Data = [], maskKey: Data = nil) {
+        self.fin = fin
+        self.rsv1 = rsv1
+        self.rsv2 = rsv2
+        self.rsv3 = rsv3
+        self.opCode = opCode
+        self.masked = maskKey != nil
+        self.data = data
+        self.payloadLength = UInt64(data.count)
+        
+        self.payloadRemainingLength = 0
+        self.headerExtraLength = 0
+        self.maskKey = maskKey
+    }
+    
+    func getData() -> Data {
+        var data: Data = []
+        
+        data.appendByte(((fin ? 1 : 0) << 7) | ((rsv1 ? 1 : 0) << 6) | ((rsv2 ? 1 : 0) << 5) | ((rsv3 ? 1 : 0) << 4) | opCode.rawValue)
+        
+        let payloadLen: UInt8
+        if payloadLength > UInt64(UInt16.max) {
+            payloadLen = 127
+        } else if payloadLength >= 126 {
+            payloadLen = 126
+        } else {
+            payloadLen = UInt8(payloadLength)
+        }
+        
+        data.appendByte(((masked ? 1 : 0) << 7) | payloadLen)
+        
+        if payloadLen == 127 {
+            data += Data(number: payloadLength)
+        } else if payloadLen == 126 {
+            data += Data(number: UInt16(payloadLength))
+        }
+        
+        if masked {
+            data += maskKey
+        }
+        
+        data += self.data
+        
+        return data
+    }
+    
 }
