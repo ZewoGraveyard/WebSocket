@@ -29,25 +29,25 @@
 internal extension Data {
     init<T>(number: T) {
         var totalBytes = sizeof(T)
-        let valuePointer = UnsafeMutablePointer<T>.alloc(1)
-        valuePointer.memory = number
+        let valuePointer = UnsafeMutablePointer<T>(allocatingCapacity: 1)
+        valuePointer.pointee = number
         let bytesPointer = UnsafeMutablePointer<Byte>(valuePointer)
         var bytes = [UInt8](count: totalBytes, repeatedValue: 0)
         let size = sizeof(UInt16)
         if totalBytes > size { totalBytes = size }
         for j in 0 ..< totalBytes {
-            bytes[totalBytes - 1 - j] = (bytesPointer + j).memory
+            bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
         }
         valuePointer.destroy()
-        valuePointer.dealloc(1)
+        valuePointer.deallocateCapacity(1)
         self.init(bytes: bytes)
     }
     
     func toInt(size size: Int, offset: Int = 0) -> UIntMax {
         guard size > 0 && size <= 8 && count >= offset+size else { return 0 }
-        let slice = self[startIndex.advancedBy(offset) ..< startIndex.advancedBy(offset+size)]
+        let slice = self[startIndex.advanced(by: offset) ..< startIndex.advanced(by: offset+size)]
         var result: UIntMax = 0
-        for (idx, byte) in slice.enumerate() {
+        for (idx, byte) in slice.enumerated() {
             let shiftAmount = UIntMax(size.toIntMax() - idx - 1) * 8
             result += UIntMax(byte) << shiftAmount
         }
@@ -57,7 +57,7 @@ internal extension Data {
 
 public class Socket {
     
-    public enum Error: ErrorType {
+    public enum Error: ErrorProtocol {
         case NoFrame
         case SmallData
         case InvalidOpCode
@@ -223,7 +223,7 @@ public class Socket {
             return 0
         }
         
-        func fail(error: ErrorType) throws -> ErrorType {
+        func fail(error: ErrorProtocol) throws -> ErrorProtocol {
             try close(.ProtocolError)
             return error
         }

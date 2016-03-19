@@ -29,7 +29,7 @@
 
 public struct Client {
     
-    public enum Error: ErrorType {
+    public enum Error: ErrorProtocol {
         case NoRequest
         case ResponseNotWebsocket
     }
@@ -46,7 +46,7 @@ public struct Client {
         self.onConnect =  onConnect
     }
     
-    public func connectInBackground(path: String, failure: ErrorType -> Void = Client.logError) {
+    public func connectInBackground(path: String, failure: ErrorProtocol -> Void = Client.logError) {
         co {
             do {
                 try self.connect(path)
@@ -56,7 +56,7 @@ public struct Client {
         }
     }
     
-    static func logError(error: ErrorType) {
+    static func logError(error: ErrorProtocol) {
         print(error)
     }
     

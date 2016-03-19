@@ -26,7 +26,7 @@
 
 public struct Server: ResponderType, MiddlewareType, ChainType {
     
-    public enum Error: ErrorType {
+    public enum Error: ErrorProtocol {
         case NoResponse
     }
     
@@ -97,7 +97,7 @@ public extension MessageType {
     }
     
     public var isWebSocket: Bool {
-        return connection?.lowercaseString == "upgrade" && upgrade?.lowercaseString == "websocket"
+        return connection?.lowercased() == "upgrade" && upgrade?.lowercased() == "websocket"
     }
     
 }
