@@ -40,7 +40,7 @@ internal extension Data {
         }
         valuePointer.deinitialize()
         valuePointer.deallocateCapacity(1)
-        self.init(bytes: bytes)
+        self.init(bytes)
     }
     
     func toInt(size size: Int, offset: Int = 0) -> UIntMax {
@@ -94,7 +94,7 @@ public class Socket {
     public let mode: Mode
     public let request: Request
     public let response: Response
-    private let stream: StreamType
+    private let stream: Stream
     private var state: State = .Header
     private var closeState: CloseState = .Open
     
@@ -108,7 +108,7 @@ public class Socket {
     private let pongEventEmitter = EventEmitter<Data>()
     private let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
     
-    init(stream: StreamType, mode: Mode, request: Request, response: Response) {
+    init(stream: Stream, mode: Mode, request: Request, response: Response) {
         self.stream = stream
         self.mode = mode
         self.request = request
@@ -190,7 +190,7 @@ public class Socket {
             do {
                 let data = try stream.receive()
                 try processData(data)
-            } catch StreamError.ClosedStream {
+            } catch StreamError.closedStream {
                 break
             }
         }
@@ -207,7 +207,7 @@ public class Socket {
         var totalBytesRead = 0
         
         while totalBytesRead < data.count {
-            let bytesRead = try readBytes(data[totalBytesRead ..< data.count])
+            let bytesRead = try readBytes(Data(data[totalBytesRead ..< data.count]))
             
             if bytesRead == 0 {
                 break
@@ -378,11 +378,11 @@ public class Socket {
                 _data = []
                 
                 for byte in data[0..<Int(consumeLength)] {
-                    _data.appendByte(byte ^ frame.maskKey[frame.maskOffset % 4])
+                    _data.append(byte ^ frame.maskKey[frame.maskOffset % 4])
                     frame.maskOffset += 1
                 }
             } else {
-                _data = data[0..<Int(consumeLength)]
+                _data = Data(data[0..<Int(consumeLength)])
             }
             
             buffer += _data
@@ -414,7 +414,7 @@ public class Socket {
         let buffer = self.buffer
         
         self.frames.removeAll()
-        self.buffer.removeAllBytes()
+        self.buffer.removeAll()
         self.initialFrame = nil
         
         switch frame.opCode {
@@ -433,7 +433,7 @@ public class Socket {
                 var data = buffer
                 
                 if data.count >= 2 {
-                    rawCloseCode = Int(UInt16(data.prefix(2).toInt(size: 2)))
+                    rawCloseCode = Int(UInt16(Data(data.prefix(2)).toInt(size: 2)))
                     data.removeFirst(2)
                     
                     if data.count > 0 {
