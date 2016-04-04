@@ -24,7 +24,7 @@
 
 @_exported import HTTP
 
-public struct Server: ResponderType, MiddlewareType, ChainType {
+public struct Server: Responder, Middleware {
     
     public enum Error: ErrorProtocol {
         case NoResponse
@@ -38,23 +38,23 @@ public struct Server: ResponderType, MiddlewareType, ChainType {
     
     // MARK: - MiddlewareType
     
-    public func respond(request: Request, chain: ChainType) throws -> Response {
+    public func respond(request: Request, chain: Responder) throws -> Response {
         guard request.isWebSocket && request.webSocketVersion == "13", let key = request.webSocketKey else {
-            return try chain.proceed(request)
+            return try chain.respond(request)
         }
         
         guard let accept = Socket.accept(key) else {
-            return Response(status: .InternalServerError)
+            return Response(status: .internalServerError)
         }
         
         let headers: Headers = [
             "Connection": "Upgrade",
             "Upgrade": "websocket",
-            "Sec-WebSocket-Accept": accept
+            "Sec-WebSocket-Accept": HeaderValues([accept])
         ]
         
         var _response: Response?
-        let response = Response(status: .SwitchingProtocols, headers: headers) { _, stream in
+        let response = Response(status: .switchingProtocols, headers: headers) { _, stream in
             guard let response = _response else {
                 throw Error.NoResponse
             }
@@ -77,27 +77,28 @@ public struct Server: ResponderType, MiddlewareType, ChainType {
     // MARK: - ChainType
     
     public func proceed(request: Request) throws -> Response {
-        return Response(status: .BadRequest)
+        return Response(status: .badRequest)
     }
     
 }
 
-public extension MessageType {
+public extension Message {
     
     public var webSocketVersion: String? {
-        return headers["Sec-Websocket-Version"]
+        return headers["Sec-Websocket-Version"].first
     }
     
     public var webSocketKey: String? {
-        return headers["Sec-Websocket-Key"]
+        return headers["Sec-Websocket-Key"].first
     }
     
     public var webSocketAccept: String? {
-        return headers["Sec-WebSocket-Accept"]
+        return headers["Sec-WebSocket-Accept"].first
     }
     
     public var isWebSocket: Bool {
-        return connection?.lowercased() == "upgrade" && upgrade?.lowercased() == "websocket"
+//        return true
+        return connection.first?.lowercased() == "upgrade" && upgrade.first?.lowercased() == "websocket"
     }
     
 }

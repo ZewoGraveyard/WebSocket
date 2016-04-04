@@ -34,7 +34,7 @@ public struct Client {
         case ResponseNotWebsocket
     }
     
-    private let client: ClientType
+    private let client: Responder
     private let onConnect: Socket throws -> Void
     
     public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
@@ -67,16 +67,16 @@ public struct Client {
             "Connection": "Upgrade",
             "Upgrade": "websocket",
             "Sec-WebSocket-Version": "13",
-            "Sec-WebSocket-Key": key,
+            "Sec-WebSocket-Key": [key],
             ]
         
         var _request: Request?
-        let request = try Request(method: .GET, uri: path, headers: headers) { response, stream in
+        let request = try Request(method: .get, uri: path, headers: headers) { response, stream in
             guard let request = _request else {
                 throw Error.NoRequest
             }
             
-            guard response.status == .SwitchingProtocols && response.isWebSocket else {
+            guard response.status == .switchingProtocols && response.isWebSocket else {
                 throw Error.ResponseNotWebsocket
             }
             
@@ -90,7 +90,7 @@ public struct Client {
         }
         _request = request
         
-        try client.send(request)
+        try client.respond(request)
     }
     
 }

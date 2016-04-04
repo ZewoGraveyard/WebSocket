@@ -112,7 +112,7 @@ struct Frame {
     func getData() -> Data {
         var data: Data = []
         
-        data.appendByte(((fin ? 1 : 0) << 7) | ((rsv1 ? 1 : 0) << 6) | ((rsv2 ? 1 : 0) << 5) | ((rsv3 ? 1 : 0) << 4) | opCode.rawValue)
+        data.append(((fin ? 1 : 0) << 7) | ((rsv1 ? 1 : 0) << 6) | ((rsv2 ? 1 : 0) << 5) | ((rsv3 ? 1 : 0) << 4) | opCode.rawValue)
         
         let payloadLen: UInt8
         if payloadLength > UInt64(UInt16.max) {
@@ -123,7 +123,7 @@ struct Frame {
             payloadLen = UInt8(payloadLength)
         }
         
-        data.appendByte(((masked ? 1 : 0) << 7) | payloadLen)
+        data.append(((masked ? 1 : 0) << 7) | payloadLen)
         
         if payloadLen == 127 {
             data += Data(number: payloadLength)
