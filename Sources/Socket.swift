@@ -188,7 +188,7 @@ public class Socket {
     func loop() throws {
         while !stream.closed {
             do {
-                let data = try stream.receive()
+                let data = try stream.receive(upTo: 1024)
                 try processData(data)
             } catch StreamError.closedStream {
                 break
@@ -371,7 +371,7 @@ public class Socket {
             var _data: Data
             
             if self.mode == .Server {
-                guard frame.maskKey != nil else {
+                guard !frame.maskKey.isEmpty else {
                     throw try fail(Error.NoMaskKey)
                 }
                 
@@ -465,7 +465,7 @@ public class Socket {
         if mode == .Client {
             maskKey = try Random.getBytes(4)
         } else {
-            maskKey = nil
+            maskKey = []
         }
         let frame = Frame(opCode: opCode, data: data, maskKey: maskKey)
         let data = frame.getData()

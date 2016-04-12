@@ -91,16 +91,16 @@ struct Frame {
         self.payloadLength = payloadLength
         self.payloadRemainingLength = payloadLength
         self.headerExtraLength = headerExtraLength
-        self.maskKey = nil
+        self.maskKey = []
     }
     
-    init(fin: Bool = true, rsv1: Bool = false, rsv2: Bool = false, rsv3: Bool = false, opCode: OpCode, data: Data = [], maskKey: Data = nil) {
+    init(fin: Bool = true, rsv1: Bool = false, rsv2: Bool = false, rsv3: Bool = false, opCode: OpCode, data: Data = [], maskKey: Data = []) {
         self.fin = fin
         self.rsv1 = rsv1
         self.rsv2 = rsv2
         self.rsv3 = rsv3
         self.opCode = opCode
-        self.masked = maskKey != nil
+        self.masked = maskKey != []
         self.data = data
         self.payloadLength = UInt64(data.count)
         

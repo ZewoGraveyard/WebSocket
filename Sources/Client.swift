@@ -38,10 +38,11 @@ public struct Client {
     private let onConnect: Socket throws -> Void
     
     public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
+        let uri = URI(host: host, port: port)
         if ssl {
-            self.client = try HTTPSClient.Client(host: host, port: port)
+            self.client = try HTTPSClient.Client(connectingTo: uri)
         } else {
-            self.client = try HTTPClient.Client(host: host, port: port)
+            self.client = try HTTPClient.Client(connectingTo: uri)
         }
         self.onConnect =  onConnect
     }
@@ -90,7 +91,7 @@ public struct Client {
         }
         _request = request
         
-        try client.respond(request)
+        try client.respond(to: request)
     }
     
 }

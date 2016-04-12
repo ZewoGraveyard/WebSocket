@@ -38,9 +38,9 @@ public struct Server: Responder, Middleware {
     
     // MARK: - MiddlewareType
     
-    public func respond(request: Request, chain: Responder) throws -> Response {
+    public func respond(to request: Request, chainingTo chain: Responder) throws -> Response {
         guard request.isWebSocket && request.webSocketVersion == "13", let key = request.webSocketKey else {
-            return try chain.respond(request)
+            return try chain.respond(to: request)
         }
         
         guard let accept = Socket.accept(key) else {
@@ -50,7 +50,7 @@ public struct Server: Responder, Middleware {
         let headers: Headers = [
             "Connection": "Upgrade",
             "Upgrade": "websocket",
-            "Sec-WebSocket-Accept": HeaderValues([accept])
+            "Sec-WebSocket-Accept": Header([accept])
         ]
         
         var _response: Response?
@@ -70,8 +70,8 @@ public struct Server: Responder, Middleware {
     
     // MARK: - ResponderType
     
-    public func respond(request: Request) throws -> Response {
-        return try respond(request, chain: self)
+    public func respond(to request: Request) throws -> Response {
+        return try respond(to: request, chainingTo: self)
     }
     
     // MARK: - ChainType
@@ -97,7 +97,6 @@ public extension Message {
     }
     
     public var isWebSocket: Bool {
-//        return true
         return connection.first?.lowercased() == "upgrade" && upgrade.first?.lowercased() == "websocket"
     }
     
