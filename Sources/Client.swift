@@ -61,7 +61,7 @@ public struct Client {
         print(error)
     }
     
-    public func connect(path: String) throws {
+    public func connect(_ path: String) throws {
         let key = try Base64.encode(Random.getBytes(16))
         
         let headers: Headers = [
