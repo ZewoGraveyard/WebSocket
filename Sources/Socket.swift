@@ -165,7 +165,7 @@ public class Socket {
         try send(.Close, data: data)
         
         if closeState == .ClientClose {
-            stream.close()
+            try stream.close()
         }
     }
     
@@ -453,7 +453,7 @@ public class Socket {
                 try close(closeCode ?? .Normal, reason: closeReason)
                 try closeEventEmitter.emit((closeCode, closeReason))
             } else if self.closeState == .ServerClose {
-                stream.close()
+                try stream.close()
             }
         case .Continuation:
             return

@@ -28,7 +28,6 @@
 @_exported import OpenSSL
 
 public struct Client {
-    
     public enum Error: ErrorProtocol {
         case NoRequest
         case ResponseNotWebsocket
@@ -40,9 +39,9 @@ public struct Client {
     public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
         let uri = URI(host: host, port: port)
         if ssl {
-            self.client = try HTTPSClient.Client(connectingTo: uri)
+            self.client = try HTTPSClient.Client(uri: uri)
         } else {
-            self.client = try HTTPClient.Client(connectingTo: uri)
+            self.client = try HTTPClient.Client(uri: uri)
         }
         self.onConnect =  onConnect
     }
