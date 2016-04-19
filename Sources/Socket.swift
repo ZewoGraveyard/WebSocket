@@ -43,7 +43,7 @@ internal extension Data {
         self.init(bytes)
     }
     
-    func toInt(size size: Int, offset: Int = 0) -> UIntMax {
+    func toInt(size: Int, offset: Int = 0) -> UIntMax {
         guard size > 0 && size <= 8 && count >= offset+size else { return 0 }
         let slice = self[startIndex.advanced(by: offset) ..< startIndex.advanced(by: offset+size)]
         var result: UIntMax = 0
@@ -115,39 +115,39 @@ public class Socket {
         self.response = response
     }
     
-    public func onBinary(listen: EventListener<Data>.Listen) -> EventListener<Data> {
+    public func onBinary(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return binaryEventEmitter.addListener(listen: listen)
     }
     
-    public func onText(listen: EventListener<String>.Listen) -> EventListener<String> {
+    public func onText(_ listen: EventListener<String>.Listen) -> EventListener<String> {
         return textEventEmitter.addListener(listen: listen)
     }
     
-    public func onPing(listen: EventListener<Data>.Listen) -> EventListener<Data> {
+    public func onPing(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return pingEventEmitter.addListener(listen: listen)
     }
     
-    public func onPong(listen: EventListener<Data>.Listen) -> EventListener<Data> {
+    public func onPong(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return pongEventEmitter.addListener(listen: listen)
     }
     
-    public func onClose(listen: EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
+    public func onClose(_ listen: EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
         return closeEventEmitter.addListener(listen: listen)
     }
     
-    public func send(string: String) throws {
+    public func send(_ string: String) throws {
         try send(.Text, data: string.data)
     }
     
-    public func send(data: Data) throws {
+    public func send(_ data: Data) throws {
         try send(.Binary, data: data)
     }
     
-    public func send(convertible: DataConvertible) throws {
+    public func send(_ convertible: DataConvertible) throws {
         try send(.Binary, data: convertible.data)
     }
     
-    public func close(code: CloseCode = .Normal, reason: String? = nil) throws {
+    public func close(_ code: CloseCode = .Normal, reason: String? = nil) throws {
         if closeState == .ServerClose {
             return
         }
@@ -165,23 +165,23 @@ public class Socket {
         try send(.Close, data: data)
         
         if closeState == .ClientClose {
-            stream.close()
+            try stream.close()
         }
     }
     
-    public func ping(data: Data = []) throws {
+    public func ping(_ data: Data = []) throws {
         try send(.Ping, data: data)
     }
     
-    public func ping(convertible: DataConvertible) throws {
+    public func ping(_ convertible: DataConvertible) throws {
         try send(.Ping, data: convertible.data)
     }
     
-    public func pong(data: Data = []) throws {
+    public func pong(_ data: Data = []) throws {
         try send(.Pong, data: data)
     }
     
-    public func pong(convertible: DataConvertible) throws {
+    public func pong(_ convertible: DataConvertible) throws {
         try send(.Pong, data: convertible.data)
     }
     
@@ -199,7 +199,7 @@ public class Socket {
         }
     }
     
-    private func processData(data: Data) throws {
+    private func processData(_ data: Data) throws {
         guard data.count > 0 else {
             return
         }
@@ -217,13 +217,13 @@ public class Socket {
         }
     }
     
-    private func readBytes(data: Data) throws -> Int {
+    private func readBytes(_ data: Data) throws -> Int {
         
         if data.count == 0 {
             return 0
         }
         
-        func fail(error: ErrorProtocol) throws -> ErrorProtocol {
+        func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
             try close(.ProtocolError)
             return error
         }
@@ -453,14 +453,14 @@ public class Socket {
                 try close(closeCode ?? .Normal, reason: closeReason)
                 try closeEventEmitter.emit((closeCode, closeReason))
             } else if self.closeState == .ServerClose {
-                stream.close()
+                try stream.close()
             }
         case .Continuation:
             return
         }
     }
     
-    private func send(opCode: Frame.OpCode, data: Data) throws {
+    private func send(_ opCode: Frame.OpCode, data: Data) throws {
         let maskKey: Data
         if mode == .Client {
             maskKey = try Random.getBytes(4)
@@ -473,7 +473,7 @@ public class Socket {
         try stream.flush()
     }
     
-    static func accept(key: String) -> String? {
+    static func accept(_ key: String) -> String? {
         return try? Base64.encode(Hash.hash(.SHA1, message: (key + GUID).data))
     }
     
