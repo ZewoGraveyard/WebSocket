@@ -28,13 +28,11 @@
 
 internal extension Data {
     init<T>(number: T) {
-        var totalBytes = sizeof(T)
+        let totalBytes = sizeof(T)
         let valuePointer = UnsafeMutablePointer<T>(allocatingCapacity: 1)
         valuePointer.pointee = number
         let bytesPointer = UnsafeMutablePointer<Byte>(valuePointer)
         var bytes = [UInt8](repeating: 0, count: totalBytes)
-        let size = sizeof(UInt16)
-        if totalBytes > size { totalBytes = size }
         for j in 0 ..< totalBytes {
             bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
         }
