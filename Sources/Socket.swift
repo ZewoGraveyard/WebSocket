@@ -276,6 +276,10 @@ public class Socket {
                 guard payloadLength < 126 else {
                     throw try fail(Error.ControlFrameInvalidLength)
                 }
+
+                if opCode == .Close && payloadLength == 1 {
+                    throw try fail(Error.ControlFrameInvalidLength)
+                }
             } else {
                 guard opCode != .Continuation || frames.count != 0 else {
                     throw try fail(Error.ContinuationOutOfOrder)
