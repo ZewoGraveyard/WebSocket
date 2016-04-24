@@ -159,6 +159,10 @@ public class Socket {
         if let reason = reason {
             data += reason
         }
+
+        if closeState == .ServerClose && code == .ProtocolError {
+            try stream.close()
+        }
         
         try send(.Close, data: data)
         

@@ -22,7 +22,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-public enum CloseCode {
+public enum CloseCode: Equatable {
     case Normal
     case GoingAway
     case ProtocolError
@@ -78,4 +78,8 @@ public enum CloseCode {
         case .Raw(let code):	return code
         }
     }
+}
+
+public func ==(lhs: CloseCode, rhs: CloseCode) -> Bool {
+    return lhs.code == rhs.code
 }
