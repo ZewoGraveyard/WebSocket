@@ -204,3 +204,17 @@ struct Frame {
     }
 
 }
+
+extension Sequence where Self.Iterator.Element == Frame {
+
+    func getPayload() -> Data {
+        var payload = Data()
+
+        for frame in self {
+            payload += frame.getPayload()
+        }
+
+        return payload
+    }
+
+}
