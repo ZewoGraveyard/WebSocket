@@ -43,14 +43,14 @@
 
 struct Frame {
     
-    private static let FinMask			: UInt8 = 0b10000000
-    private static let Rsv1Mask			: UInt8 = 0b01000000
-    private static let Rsv2Mask			: UInt8 = 0b00100000
-    private static let Rsv3Mask			: UInt8 = 0b00010000
-    private static let OpCodeMask		: UInt8 = 0b00001111
+    private static let FinMask : UInt8 = 0b10000000
+    private static let Rsv1Mask : UInt8 = 0b01000000
+    private static let Rsv2Mask : UInt8 = 0b00100000
+    private static let Rsv3Mask : UInt8 = 0b00010000
+    private static let OpCodeMask : UInt8 = 0b00001111
     
-    private static let MaskMask			: UInt8 = 0b10000000
-    private static let PayloadLenMask	: UInt8 = 0b01111111
+    private static let MaskMask : UInt8 = 0b10000000
+    private static let PayloadLenMask : UInt8 = 0b01111111
     
     enum OpCode: UInt8 {
         case Continuation	= 0x0
@@ -172,13 +172,17 @@ struct Frame {
     }
 
     mutating func addByte(byte: Byte) {
+        func getExtendedPayloadLength() -> Int {
+            return payloadLength == 126 ? 2 : (payloadLength == 127 ? 8 : 0)
+        }
+
         if headerData.count < 2 {
             headerData.append(byte)
         } else if payloadLength == 126 && headerExtraData.count < 2 {
             headerExtraData.append(byte)
         } else if payloadLength == 127 && headerExtraData.count < 8 {
             headerExtraData.append(byte)
-        } else if masked && headerExtraData.count < 4 + (payloadLength == 126 ? 2 : (payloadLength == 127 ? 8 : 0)) {
+        } else if masked && headerExtraData.count < 4 + getExtendedPayloadLength() {
             headerExtraData.append(byte)
         } else {
             payloadData.append(byte)

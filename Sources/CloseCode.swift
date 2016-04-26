@@ -80,6 +80,6 @@ public enum CloseCode: Equatable {
     }
 }
 
-public func ==(lhs: CloseCode, rhs: CloseCode) -> Bool {
+public func == (lhs: CloseCode, rhs: CloseCode) -> Bool {
     return lhs.code == rhs.code
 }
