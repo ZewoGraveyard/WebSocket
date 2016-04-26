@@ -105,6 +105,7 @@ struct Frame {
         } else if payloadLength == 127 {
             return headerExtraData.withUnsafeBufferPointer(body: { ptr -> UInt64 in
                 if let baseAddress = ptr.baseAddress {
+//                    Int(UInt16(Data(data.prefix(2)).toInt(size: 2))) TODO TRY SOMETHING LIKE THIS
                     return UnsafePointer<UInt64>(baseAddress).pointee.bigEndian
                 }
                 return 0

@@ -23,6 +23,7 @@
 // SOFTWARE.
 
 public enum CloseCode: Equatable {
+    
     case Normal
     case GoingAway
     case ProtocolError
@@ -39,7 +40,7 @@ public enum CloseCode: Equatable {
     case TLSHandshake
     case Raw(UInt16)
     
-    init(code: Int) {
+    init(code: UInt16) {
         switch code {
         case 1000: self = Normal
         case 1001: self = GoingAway
@@ -77,6 +78,17 @@ public enum CloseCode: Equatable {
         case .TLSHandshake:		return 1015
         case .Raw(let code):	return code
         }
+    }
+
+    var isValid: Bool {
+        let code = self.code
+
+        if code >= 1000 && code <= 5000 {
+            return code != 1004 && code != 1005 && code != 1006 && code != 1014 && code != 1015 &&
+                code != 1016 && code != 1100 && code != 2000 && code != 2999
+        }
+
+        return false
     }
 }
 

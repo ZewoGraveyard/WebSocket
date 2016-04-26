@@ -67,6 +67,7 @@ public class Socket {
         case MaskKeyInvalidLength
         case NoMaskKey
         case InvalidUTF8Payload
+        case InvalidCloseCode
     }
     
     private static let GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -143,7 +144,7 @@ public class Socket {
         try send(.Binary, data: convertible.data)
     }
     
-    public func close(_ code: CloseCode = .Normal, reason: String? = nil) throws {
+    public func close(_ code: CloseCode?, reason: String? = nil) throws {
         if closeState == .ServerClose {
             return
         }
@@ -152,7 +153,11 @@ public class Socket {
             closeState = .ServerClose
         }
         
-        var data = Data(number: code.code)
+        var data = Data()
+
+        if let code = code {
+            data += Data(number: code.code)
+        }
         
         if let reason = reason {
             data += reason
@@ -284,6 +289,7 @@ public class Socket {
 
                 var opCode = frame.opCode
 
+
                 if frame.opCode == .Continuation {
                     let firstFrame = continuationFrames.first!
                     opCode = firstFrame.opCode
@@ -303,30 +309,39 @@ public class Socket {
                     try pongEventEmitter.emit(frame.getPayload())
                 case .Close:
                     if self.closeState == .Open {
-                        var rawCloseCode: Int?
+                        var rawCloseCode: UInt16?
                         var closeReason: String?
                         var data = frame.getPayload()
 
                         if data.count >= 2 {
-                            rawCloseCode = Int(UInt16(Data(data.prefix(2)).toInt(size: 2)))
+                            rawCloseCode = UInt16(Data(data.prefix(2)).toInt(size: 2))
                             data.removeFirst(2)
 
                             if data.count > 0 {
-                                closeReason = try String(data: data)
+                                closeReason = try? String(data: data)
+                            }
+
+                            if data.count > 0 && closeReason == nil {
+                                throw try fail(Error.InvalidUTF8Payload)
                             }
                         }
 
                         closeState = .ClientClose
 
-                        let closeCode: CloseCode?
                         if let rawCloseCode = rawCloseCode {
-                            closeCode = CloseCode(code: rawCloseCode)
+                            let closeCode = CloseCode(code: rawCloseCode)
+                            print(closeCode)
+                            print(closeCode.isValid)
+                            if closeCode.isValid {
+                                try close(closeCode ?? .Normal, reason: closeReason)
+                                try closeEventEmitter.emit((closeCode, closeReason))
+                            } else {
+                                throw try fail(Error.InvalidCloseCode)
+                            }
                         } else {
-                            closeCode = nil
+                            try close(nil, reason: nil)
+                            try closeEventEmitter.emit((nil, nil))
                         }
-
-                        try close(closeCode ?? .Normal, reason: closeReason)
-                        try closeEventEmitter.emit((closeCode, closeReason))
                     } else if self.closeState == .ServerClose {
                         try stream.close()
                     }
