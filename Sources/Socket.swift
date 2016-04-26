@@ -66,6 +66,7 @@ public class Socket {
         case DataFrameWithInvalidBits
         case MaskKeyInvalidLength
         case NoMaskKey
+        case InvalidUTF8Payload
     }
     
     private static let GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -292,6 +293,9 @@ public class Socket {
                 case .Binary:
                     try binaryEventEmitter.emit(continuationFrames.getPayload())
                 case .Text:
+                    if (try? String(data: continuationFrames.getPayload())) == nil {
+                        throw try fail(Error.InvalidUTF8Payload)
+                    }
                     try textEventEmitter.emit(try String(data: continuationFrames.getPayload()))
                 case .Ping:
                     try pingEventEmitter.emit(frame.getPayload())
