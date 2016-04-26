@@ -23,7 +23,6 @@
 // SOFTWARE.
 
 public enum CloseCode: Equatable {
-    
     case Normal
     case GoingAway
     case ProtocolError
