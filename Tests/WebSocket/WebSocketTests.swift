@@ -8,7 +8,7 @@ class WebSocketTests: XCTestCase {
 }
 
 extension WebSocketTests {
-    static var allTests : [(String, WebSocketTests -> () throws -> Void)] {
+    static var allTests: [(String, WebSocketTests -> () throws -> Void)] {
         return [
            ("testReality", testReality),
         ]
