@@ -101,14 +101,9 @@ struct Frame {
 
     private var extendedPayloadLength: UInt64 {
         if payloadLength == 126 {
-            return UInt64(UInt16(headerExtraData[0]) << 8 | UInt16(headerExtraData[1]) << 0)
+            return UInt64(Data(headerExtraData.prefix(2)).toInt(size: 2))
         } else if payloadLength == 127 {
-            return headerExtraData.withUnsafeBufferPointer(body: { ptr -> UInt64 in
-                if let baseAddress = ptr.baseAddress {
-                    return UnsafePointer<UInt64>(baseAddress).pointee.bigEndian
-                }
-                return 0
-            })
+            return UInt64(Data(headerExtraData.prefix(8)).toInt(size: 8))
         }
         return payloadLength
     }

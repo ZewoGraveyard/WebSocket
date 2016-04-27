@@ -330,8 +330,6 @@ public class Socket {
 
                         if let rawCloseCode = rawCloseCode {
                             let closeCode = CloseCode(code: rawCloseCode)
-                            print(closeCode)
-                            print(closeCode.isValid)
                             if closeCode.isValid {
                                 try close(closeCode ?? .Normal, reason: closeReason)
                                 try closeEventEmitter.emit((closeCode, closeReason))
