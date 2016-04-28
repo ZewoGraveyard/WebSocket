@@ -189,11 +189,11 @@ public class Socket {
     public func pong(_ convertible: DataConvertible) throws {
         try send(.Pong, data: convertible.data)
     }
-    
+
     func loop() throws {
         while !stream.closed {
             do {
-                let data = try stream.receive(upTo: 1024)
+                let data = try stream.receive(upTo: 4096)
                 try processData(data)
             } catch StreamError.closedStream {
                 break
@@ -213,7 +213,7 @@ public class Socket {
         
         while totalBytesRead < data.count {
             let bytesRead = try readBytes(Data(data[totalBytesRead ..< data.count]))
-            
+
             if bytesRead == 0 {
                 break
             }
@@ -221,144 +221,147 @@ public class Socket {
             totalBytesRead += bytesRead
         }
     }
+
     private func readBytes(_ data: Data) throws -> Int {
-        
         if data.count == 0 {
             return 0
         }
-        
+
+        var remainingData = data
+
+        repeat {
+            if (incompleteFrame == nil) {
+                incompleteFrame = Frame()
+            }
+
+            // Use ! because if let will add data to a copy of the frame
+            remainingData = incompleteFrame!.add(data: remainingData)
+
+            if incompleteFrame!.isComplete {
+                try processFrame(incompleteFrame!)
+                incompleteFrame = nil
+            }
+        } while remainingData.count > 0
+
+        return data.count
+    }
+
+    private func processFrame(_ frame: Frame) throws {
         func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
             try close(.ProtocolError)
             return error
         }
 
-        for byte in data {
-            if incompleteFrame == nil {
-                incompleteFrame = Frame()
-            }
-
-            incompleteFrame!.addByte(byte: byte)
-
-            let frame = incompleteFrame!
-
-            if frame.isComplete {
-                guard !frame.rsv1 && !frame.rsv2 && !frame.rsv3 else {
-                    throw try fail(Error.DataFrameWithInvalidBits)
-                }
-
-                guard frame.opCode != .Invalid else {
-                    throw try fail(Error.InvalidOpCode)
-                }
-
-                guard !frame.masked || self.mode == .Server else {
-                    throw try fail(Error.MaskedFrameFromServer)
-                }
-
-                guard frame.masked || self.mode == .Client else {
-                    throw try fail(Error.UnaskedFrameFromClient)
-                }
-
-                if frame.opCode.isControl {
-                    guard frame.fin else {
-                        throw try fail(Error.ControlFrameNotFinal)
-                    }
-
-                    guard frame.payloadLength < 126 else {
-                        throw try fail(Error.ControlFrameInvalidLength)
-                    }
-
-                    if frame.opCode == .Close && frame.payloadLength == 1 {
-                        throw try fail(Error.ControlFrameInvalidLength)
-                    }
-                } else {
-                    if frame.opCode == .Continuation && continuationFrames.isEmpty {
-                        throw try fail(Error.ContinuationOutOfOrder)
-                    }
-
-                    if frame.opCode != .Continuation && !continuationFrames.isEmpty {
-                        throw try fail(Error.ContinuationOutOfOrder)
-                    }
-
-                    continuationFrames.append(frame)
-                }
-
-                if !frame.fin {
-                    incompleteFrame = nil
-                    continue
-                }
-
-                var opCode = frame.opCode
-
-
-                if frame.opCode == .Continuation {
-                    let firstFrame = continuationFrames.first!
-                    opCode = firstFrame.opCode
-                }
-
-                switch opCode {
-                case .Binary:
-                    try binaryEventEmitter.emit(continuationFrames.getPayload())
-                case .Text:
-                    if (try? String(data: continuationFrames.getPayload())) == nil {
-                        throw try fail(Error.InvalidUTF8Payload)
-                    }
-                    try textEventEmitter.emit(try String(data: continuationFrames.getPayload()))
-                case .Ping:
-                    try pingEventEmitter.emit(frame.getPayload())
-                case .Pong:
-                    try pongEventEmitter.emit(frame.getPayload())
-                case .Close:
-                    if self.closeState == .Open {
-                        var rawCloseCode: UInt16?
-                        var closeReason: String?
-                        var data = frame.getPayload()
-
-                        if data.count >= 2 {
-                            rawCloseCode = UInt16(Data(data.prefix(2)).toInt(size: 2))
-                            data.removeFirst(2)
-
-                            if data.count > 0 {
-                                closeReason = try? String(data: data)
-                            }
-
-                            if data.count > 0 && closeReason == nil {
-                                throw try fail(Error.InvalidUTF8Payload)
-                            }
-                        }
-
-                        closeState = .ClientClose
-
-                        if let rawCloseCode = rawCloseCode {
-                            let closeCode = CloseCode(code: rawCloseCode)
-                            if closeCode.isValid {
-                                try close(closeCode ?? .Normal, reason: closeReason)
-                                try closeEventEmitter.emit((closeCode, closeReason))
-                            } else {
-                                throw try fail(Error.InvalidCloseCode)
-                            }
-                        } else {
-                            try close(nil, reason: nil)
-                            try closeEventEmitter.emit((nil, nil))
-                        }
-                    } else if self.closeState == .ServerClose {
-                        try stream.close()
-                    }
-                default:
-                    break
-                }
-
-                incompleteFrame = nil
-
-                if !frame.opCode.isControl {
-                    continuationFrames.removeAll()
-                }
-
-            }
+        // TODO Check for validity within Frame struct
+        guard !frame.rsv1 && !frame.rsv2 && !frame.rsv3 else {
+            throw try fail(Error.DataFrameWithInvalidBits)
         }
 
-        return data.count
+        guard frame.opCode != .Invalid else {
+            throw try fail(Error.InvalidOpCode)
+        }
+
+        guard !frame.masked || self.mode == .Server else {
+            throw try fail(Error.MaskedFrameFromServer)
+        }
+
+        guard frame.masked || self.mode == .Client else {
+            throw try fail(Error.UnaskedFrameFromClient)
+        }
+
+        if frame.opCode.isControl {
+            guard frame.fin else {
+                throw try fail(Error.ControlFrameNotFinal)
+            }
+
+            guard frame.payloadLength < 126 else {
+                throw try fail(Error.ControlFrameInvalidLength)
+            }
+
+            if frame.opCode == .Close && frame.payloadLength == 1 {
+                throw try fail(Error.ControlFrameInvalidLength)
+            }
+        } else {
+            if frame.opCode == .Continuation && continuationFrames.isEmpty {
+                throw try fail(Error.ContinuationOutOfOrder)
+            }
+
+            if frame.opCode != .Continuation && !continuationFrames.isEmpty {
+                throw try fail(Error.ContinuationOutOfOrder)
+            }
+
+            continuationFrames.append(frame)
+        }
+
+        if !frame.fin {
+            return
+        }
+
+        var opCode = frame.opCode
+
+
+        if frame.opCode == .Continuation {
+            let firstFrame = continuationFrames.first!
+            opCode = firstFrame.opCode
+        }
+
+        switch opCode {
+        case .Binary:
+            try binaryEventEmitter.emit(continuationFrames.payload)
+        case .Text:
+            if (try? String(data: continuationFrames.payload)) == nil {
+                throw try fail(Error.InvalidUTF8Payload)
+            }
+            try textEventEmitter.emit(try String(data: continuationFrames.payload))
+        case .Ping:
+            try pingEventEmitter.emit(frame.payload)
+        case .Pong:
+            try pongEventEmitter.emit(frame.payload)
+        case .Close:
+            if self.closeState == .Open {
+                var rawCloseCode: UInt16?
+                var closeReason: String?
+                var data = frame.payload
+
+                if data.count >= 2 {
+                    rawCloseCode = UInt16(Data(data.prefix(2)).toInt(size: 2))
+                    data.removeFirst(2)
+
+                    if data.count > 0 {
+                        closeReason = try? String(data: data)
+                    }
+
+                    if data.count > 0 && closeReason == nil {
+                        throw try fail(Error.InvalidUTF8Payload)
+                    }
+                }
+
+                closeState = .ClientClose
+
+                if let rawCloseCode = rawCloseCode {
+                    let closeCode = CloseCode(code: rawCloseCode)
+                    if closeCode.isValid {
+                        try close(closeCode ?? .Normal, reason: closeReason)
+                        try closeEventEmitter.emit((closeCode, closeReason))
+                    } else {
+                        throw try fail(Error.InvalidCloseCode)
+                    }
+                } else {
+                    try close(nil, reason: nil)
+                    try closeEventEmitter.emit((nil, nil))
+                }
+            } else if self.closeState == .ServerClose {
+                try stream.close()
+            }
+        default:
+            break
+        }
+
+        if !frame.opCode.isControl {
+            continuationFrames.removeAll()
+        }
     }
-    
+
     private func send(_ opCode: Frame.OpCode, data: Data) throws {
         let maskKey: Data
         if mode == .Client {
@@ -367,7 +370,7 @@ public class Socket {
             maskKey = []
         }
         let frame = Frame(opCode: opCode, data: data, maskKey: maskKey)
-        let data = frame.getData()
+        let data = frame.data
         try stream.send(data)
         try stream.flush()
     }

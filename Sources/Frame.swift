@@ -69,148 +69,145 @@ struct Frame {
     }
     
     var fin: Bool {
-        return headerData[0] & Frame.FinMask != 0
+        return data[0] & Frame.FinMask != 0
     }
 
     var rsv1: Bool {
-        return headerData[0] & Frame.Rsv1Mask != 0
+        return data[0] & Frame.Rsv1Mask != 0
     }
 
     var rsv2: Bool {
-        return headerData[0] & Frame.Rsv2Mask != 0
+        return data[0] & Frame.Rsv2Mask != 0
     }
 
     var rsv3: Bool {
-        return headerData[0] & Frame.Rsv3Mask != 0
+        return data[0] & Frame.Rsv3Mask != 0
     }
 
     var opCode: OpCode {
-        if let opCode = Frame.OpCode(rawValue: headerData[0] & Frame.OpCodeMask) {
+        if let opCode = Frame.OpCode(rawValue: data[0] & Frame.OpCodeMask) {
             return opCode
         }
         return .Invalid
     }
 
     var masked: Bool {
-        return headerData[1] & Frame.MaskMask != 0
+        return data[1] & Frame.MaskMask != 0
     }
 
     var payloadLength: UInt64 {
-        return UInt64(headerData[1] & Frame.PayloadLenMask)
+        return UInt64(data[1] & Frame.PayloadLenMask)
+    }
+
+    var payload: Data {
+        var offset = 2
+
+        if payloadLength == 126 {
+            offset += 2
+        } else if payloadLength == 127 {
+            offset += 8
+        }
+
+        if masked {
+            offset += 4
+
+            var unmaskedPayloadData = Data(data[offset..<data.count])
+
+            var maskOffset = 0
+            for i in 0..<unmaskedPayloadData.count {
+                unmaskedPayloadData[i] ^= maskKey[maskOffset % 4]
+                maskOffset += 1
+            }
+
+            return unmaskedPayloadData
+        }
+
+        return Data(data[offset..<data.count])
+    }
+
+    var isComplete: Bool {
+        if data.count < 2 {
+            return false
+        } else if data.count < 4 && payloadLength == 126 {
+            return false
+        } else if data.count < 10 && payloadLength == 127 {
+            return false
+        }
+
+        return UInt64(data.count) >= totalFrameSize
     }
 
     private var extendedPayloadLength: UInt64 {
         if payloadLength == 126 {
-            return UInt64(Data(headerExtraData.prefix(2)).toInt(size: 2))
+            return data.toInt(size: 2, offset: 2)
         } else if payloadLength == 127 {
-            return UInt64(Data(headerExtraData.prefix(8)).toInt(size: 8))
+            return data.toInt(size: 8, offset: 2)
         }
         return payloadLength
     }
 
     private var maskKey: Data {
         if payloadLength <= 125 {
-            return Data(headerExtraData[0..<4])
+            return Data(data[2..<6])
         } else if payloadLength == 126 {
-            return Data(headerExtraData[2..<6])
+            return Data(data[4..<8])
         }
-        return Data(headerExtraData[8..<12])
+        return Data(data[10..<14])
     }
 
-    private var headerData = Data()
-    private var headerExtraData = Data()
-    private var payloadData = Data()
+    private var totalFrameSize: UInt64 {
+        let extendedPayloadExtraBytes = (payloadLength == 126 ? 2 : (payloadLength == 127 ? 8 : 0))
+        let maskBytes = masked ? 4 : 0
+        return UInt64(2 + extendedPayloadExtraBytes + maskBytes) + extendedPayloadLength
+    }
+
+    private(set) var data = Data()
 
     init() {
 
     }
 
     init(opCode: OpCode, data: Data, maskKey: Data) {
-        headerData.append((1 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | opCode.rawValue)
+        self.data.append((1 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | opCode.rawValue)
 
         let masked = maskKey.count == 4
         let payloadLength = UInt64(data.count)
 
         if payloadLength > UInt64(UInt16.max) {
-            headerData.append((masked ? 1 : 0) << 7 | 127)
-            headerExtraData += Data(number: payloadLength)
+            self.data.append((masked ? 1 : 0) << 7 | 127)
+            self.data += Data(number: payloadLength)
         } else if payloadLength > 125 {
-            headerData.append((masked ? 1 : 0) << 7 | 126)
-            headerExtraData += Data(number: UInt16(payloadLength))
+            self.data.append((masked ? 1 : 0) << 7 | 126)
+            self.data += Data(number: UInt16(payloadLength))
         } else {
-            headerData.append((masked ? 1 : 0) << 7 | (UInt8(payloadLength) & 0x7F))
+            self.data.append((masked ? 1 : 0) << 7 | (UInt8(payloadLength) & 0x7F))
         }
 
-        payloadData += data
+        self.data += data
     }
 
-    func getPayload() -> Data {
-        var unmaskedPayloadData = payloadData
+    mutating func add(data: Data) -> Data {
+        self.data += data
 
-        if masked {
-            var maskOffset = 0
-            for i in 0..<unmaskedPayloadData.count {
-                unmaskedPayloadData[i] ^= maskKey[maskOffset % 4]
-                maskOffset += 1
-            }
+        if isComplete {
+            // Int(totalFrameSize) cast is bad, will break spec max frame size of UInt64
+            let remainingData = Data(self.data[Int(totalFrameSize)..<self.data.count])
+            self.data = Data(self.data[0..<Int(totalFrameSize)])
+            return remainingData
         }
 
-        return unmaskedPayloadData
-    }
-
-    func getData() -> Data {
-        var data = Data()
-        data += headerData
-        data += headerExtraData
-        data += getPayload()
-        return data
-    }
-
-    mutating func addByte(byte: Byte) {
-        func getExtendedPayloadLength() -> Int {
-            return payloadLength == 126 ? 2 : (payloadLength == 127 ? 8 : 0)
-        }
-
-        if headerData.count < 2 {
-            headerData.append(byte)
-        } else if payloadLength == 126 && headerExtraData.count < 2 {
-            headerExtraData.append(byte)
-        } else if payloadLength == 127 && headerExtraData.count < 8 {
-            headerExtraData.append(byte)
-        } else if masked && headerExtraData.count < 4 + getExtendedPayloadLength() {
-            headerExtraData.append(byte)
-        } else {
-            payloadData.append(byte)
-        }
-    }
-
-    var isComplete: Bool {
-        if headerData.count < 2 {
-            return false
-        } else if masked && headerExtraData.count < 4 {
-            return false
-        } else if payloadLength == 126 && headerExtraData.count < (masked ? 6 : 2) {
-            return false
-        } else if payloadLength == 127 && headerExtraData.count < (masked ? 12 : 8) {
-            return false
-        } else {
-            if payloadLength <= 125 {
-                return payloadData.count == Int(payloadLength)
-            } else {
-                return UInt64(payloadData.count) == extendedPayloadLength
-            }
-        }
+        return Data()
     }
 
 }
 
 extension Sequence where Self.Iterator.Element == Frame {
 
-    func getPayload() -> Data {
+    var payload: Data {
         var payload = Data()
 
         for frame in self {
-            payload += frame.getPayload()
+            payload += frame.payload
         }
 
         return payload
