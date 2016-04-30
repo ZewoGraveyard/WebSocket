@@ -48,7 +48,7 @@ public struct Client {
       guard let host = uri.host else {
           throw ClientError.hostRequired
       }
-      let port = uri.port ?? (scheme == "wss" ? 433 : 80)
+      let port = uri.port ?? (scheme == "wss" ? 443 : 80)
       try self.init(ssl:scheme == "wss", host: host, port: port, onConnect: onConnect)
     }
 
