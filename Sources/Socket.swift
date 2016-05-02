@@ -245,38 +245,38 @@ public class Socket {
 
         return data.count
     }
-
-    private func processFrame(_ frame: Frame) throws {
+    
+    private func validateFrame(_ frame: Frame) throws {
         func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
             try close(.protocolError)
             return error
         }
-
+        
         guard !frame.rsv1 && !frame.rsv2 && !frame.rsv3 else {
             throw try fail(Error.dataFrameWithInvalidBits)
         }
-
+        
         guard frame.opCode != .Invalid else {
             throw try fail(Error.invalidOpCode)
         }
-
+        
         guard !frame.masked || self.mode == .Server else {
             throw try fail(Error.maskedFrameFromServer)
         }
-
+        
         guard frame.masked || self.mode == .Client else {
             throw try fail(Error.unaskedFrameFromClient)
         }
-
+        
         if frame.opCode.isControl {
             guard frame.fin else {
                 throw try fail(Error.controlFrameNotFinal)
             }
-
+            
             guard frame.payloadLength < 126 else {
                 throw try fail(Error.controlFrameInvalidLength)
             }
-
+            
             if frame.opCode == .Close && frame.payloadLength == 1 {
                 throw try fail(Error.controlFrameInvalidLength)
             }
@@ -284,11 +284,22 @@ public class Socket {
             if frame.opCode == .Continuation && continuationFrames.isEmpty {
                 throw try fail(Error.continuationOutOfOrder)
             }
-
+            
             if frame.opCode != .Continuation && !continuationFrames.isEmpty {
                 throw try fail(Error.continuationOutOfOrder)
             }
+            
+            
+        }
+    }
 
+    private func processFrame(_ frame: Frame) throws {
+        func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
+            try close(.protocolError)
+            return error
+        }
+        
+        if !frame.opCode.isControl {
             continuationFrames.append(frame)
         }
 
