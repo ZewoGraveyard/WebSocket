@@ -56,18 +56,18 @@ internal extension Data {
 public class Socket {
     
     public enum Error: ErrorProtocol {
-        case NoFrame
-        case InvalidOpCode
-        case MaskedFrameFromServer
-        case UnaskedFrameFromClient
-        case ControlFrameNotFinal
-        case ControlFrameInvalidLength
-        case ContinuationOutOfOrder
-        case DataFrameWithInvalidBits
-        case MaskKeyInvalidLength
-        case NoMaskKey
-        case InvalidUTF8Payload
-        case InvalidCloseCode
+        case noFrame
+        case invalidOpCode
+        case maskedFrameFromServer
+        case unaskedFrameFromClient
+        case controlFrameNotFinal
+        case controlFrameInvalidLength
+        case continuationOutOfOrder
+        case dataFrameWithInvalidBits
+        case maskKeyInvalidLength
+        case noMaskKey
+        case invalidUTF8Payload
+        case invalidCloseCode
     }
     
     private static let GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -163,7 +163,7 @@ public class Socket {
             data += reason
         }
 
-        if closeState == .ServerClose && code == .ProtocolError {
+        if closeState == .ServerClose && code == .protocolError {
             try stream.close()
         }
         
@@ -200,7 +200,7 @@ public class Socket {
             }
         }
         if closeState == .Open {
-            try closeEventEmitter.emit((code: .Abnormal, reason: nil))
+            try closeEventEmitter.emit((code: .abnormal, reason: nil))
         }
     }
     
@@ -230,7 +230,7 @@ public class Socket {
         var remainingData = data
 
         repeat {
-            if (incompleteFrame == nil) {
+            if incompleteFrame == nil {
                 incompleteFrame = Frame()
             }
 
@@ -248,46 +248,45 @@ public class Socket {
 
     private func processFrame(_ frame: Frame) throws {
         func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
-            try close(.ProtocolError)
+            try close(.protocolError)
             return error
         }
 
-        // TODO Check for validity within Frame struct
         guard !frame.rsv1 && !frame.rsv2 && !frame.rsv3 else {
-            throw try fail(Error.DataFrameWithInvalidBits)
+            throw try fail(Error.dataFrameWithInvalidBits)
         }
 
         guard frame.opCode != .Invalid else {
-            throw try fail(Error.InvalidOpCode)
+            throw try fail(Error.invalidOpCode)
         }
 
         guard !frame.masked || self.mode == .Server else {
-            throw try fail(Error.MaskedFrameFromServer)
+            throw try fail(Error.maskedFrameFromServer)
         }
 
         guard frame.masked || self.mode == .Client else {
-            throw try fail(Error.UnaskedFrameFromClient)
+            throw try fail(Error.unaskedFrameFromClient)
         }
 
         if frame.opCode.isControl {
             guard frame.fin else {
-                throw try fail(Error.ControlFrameNotFinal)
+                throw try fail(Error.controlFrameNotFinal)
             }
 
             guard frame.payloadLength < 126 else {
-                throw try fail(Error.ControlFrameInvalidLength)
+                throw try fail(Error.controlFrameInvalidLength)
             }
 
             if frame.opCode == .Close && frame.payloadLength == 1 {
-                throw try fail(Error.ControlFrameInvalidLength)
+                throw try fail(Error.controlFrameInvalidLength)
             }
         } else {
             if frame.opCode == .Continuation && continuationFrames.isEmpty {
-                throw try fail(Error.ContinuationOutOfOrder)
+                throw try fail(Error.continuationOutOfOrder)
             }
 
             if frame.opCode != .Continuation && !continuationFrames.isEmpty {
-                throw try fail(Error.ContinuationOutOfOrder)
+                throw try fail(Error.continuationOutOfOrder)
             }
 
             continuationFrames.append(frame)
@@ -310,7 +309,7 @@ public class Socket {
             try binaryEventEmitter.emit(continuationFrames.payload)
         case .Text:
             if (try? String(data: continuationFrames.payload)) == nil {
-                throw try fail(Error.InvalidUTF8Payload)
+                throw try fail(Error.invalidUTF8Payload)
             }
             try textEventEmitter.emit(try String(data: continuationFrames.payload))
         case .Ping:
@@ -332,7 +331,7 @@ public class Socket {
                     }
 
                     if data.count > 0 && closeReason == nil {
-                        throw try fail(Error.InvalidUTF8Payload)
+                        throw try fail(Error.invalidUTF8Payload)
                     }
                 }
 
@@ -341,10 +340,10 @@ public class Socket {
                 if let rawCloseCode = rawCloseCode {
                     let closeCode = CloseCode(code: rawCloseCode)
                     if closeCode.isValid {
-                        try close(closeCode ?? .Normal, reason: closeReason)
+                        try close(closeCode ?? .normal, reason: closeReason)
                         try closeEventEmitter.emit((closeCode, closeReason))
                     } else {
-                        throw try fail(Error.InvalidCloseCode)
+                        throw try fail(Error.invalidCloseCode)
                     }
                 } else {
                     try close(nil, reason: nil)
