@@ -238,6 +238,7 @@ public class Socket {
             remainingData = incompleteFrame!.add(data: remainingData)
 
             if incompleteFrame!.isComplete {
+                try validateFrame(incompleteFrame!)
                 try processFrame(incompleteFrame!)
                 incompleteFrame = nil
             }
