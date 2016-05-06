@@ -13,10 +13,10 @@
 ```swift
 import WebSocket
 import HTTPServer
-    
+
 let webSocketServer = WebSocket.Server { webSocket in
     print("connected")
-    
+
     webSocket.onBinary { data in
         print("data \(data)")
         try webSocket.send(data)
@@ -38,7 +38,7 @@ import PackageDescription
 
 let package = Package(
     dependencies: [
-        .Package(url: "https://github.com/Zewo/WebSocket.git", majorVersion: 0, minor: 5),
+        .Package(url: "https://github.com/Zewo/WebSocket.git", majorVersion: 0, minor: 6),
     ]
 )
 ```
