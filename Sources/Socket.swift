@@ -40,7 +40,7 @@ internal extension Data {
         valuePointer.deallocateCapacity(1)
         self.init(bytes)
     }
-    
+
     func toInt(size: Int, offset: Int = 0) -> UIntMax {
         guard size > 0 && size <= 8 && count >= offset+size else { return 0 }
         let slice = self[startIndex.advanced(by: offset) ..< startIndex.advanced(by: offset+size)]
@@ -54,7 +54,7 @@ internal extension Data {
 }
 
 public class Socket {
-    
+
     public enum Error: ErrorProtocol {
         case noFrame
         case invalidOpCode
@@ -69,26 +69,26 @@ public class Socket {
         case invalidUTF8Payload
         case invalidCloseCode
     }
-    
+
     private static let GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-    
+
     public enum Mode {
         case Server
         case Client
     }
-    
+
     private enum State {
         case Header
         case HeaderExtra
         case Payload
     }
-    
+
     private enum CloseState {
         case Open
         case ServerClose
         case ClientClose
     }
-    
+
     public let mode: Mode
     public let request: Request
     public let response: Response
@@ -104,51 +104,51 @@ public class Socket {
     private let pingEventEmitter = EventEmitter<Data>()
     private let pongEventEmitter = EventEmitter<Data>()
     private let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
-    
+
     init(stream: Stream, mode: Mode, request: Request, response: Response) {
         self.stream = stream
         self.mode = mode
         self.request = request
         self.response = response
     }
-    
+
     public func onBinary(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return binaryEventEmitter.addListener(listen: listen)
     }
-    
+
     public func onText(_ listen: EventListener<String>.Listen) -> EventListener<String> {
         return textEventEmitter.addListener(listen: listen)
     }
-    
+
     public func onPing(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return pingEventEmitter.addListener(listen: listen)
     }
-    
+
     public func onPong(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return pongEventEmitter.addListener(listen: listen)
     }
-    
+
     public func onClose(_ listen: EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
         return closeEventEmitter.addListener(listen: listen)
     }
-    
+
     public func send(_ string: String) throws {
         try send(.Text, data: string.data)
     }
-    
+
     public func send(_ data: Data) throws {
         try send(.Binary, data: data)
     }
-    
+
     public func send(_ convertible: DataConvertible) throws {
         try send(.Binary, data: convertible.data)
     }
-    
-    public func close(_ code: CloseCode?, reason: String? = nil) throws {
+
+    public func close(_ code: CloseCode = .Normal, reason: String? = nil) throws {
         if closeState == .ServerClose {
             return
         }
-        
+
         if closeState == .Open {
             closeState = .ServerClose
         }
@@ -168,24 +168,24 @@ public class Socket {
         }
         
         try send(.Close, data: data)
-        
+
         if closeState == .ClientClose {
             try stream.close()
         }
     }
-    
+
     public func ping(_ data: Data = []) throws {
         try send(.Ping, data: data)
     }
-    
+
     public func ping(_ convertible: DataConvertible) throws {
         try send(.Ping, data: convertible.data)
     }
-    
+
     public func pong(_ data: Data = []) throws {
         try send(.Pong, data: data)
     }
-    
+
     public func pong(_ convertible: DataConvertible) throws {
         try send(.Pong, data: convertible.data)
     }
@@ -203,21 +203,21 @@ public class Socket {
             try closeEventEmitter.emit((code: .abnormal, reason: nil))
         }
     }
-    
+
     private func processData(_ data: Data) throws {
         guard data.count > 0 else {
             return
         }
-        
+
         var totalBytesRead = 0
-        
+
         while totalBytesRead < data.count {
             let bytesRead = try readBytes(Data(data[totalBytesRead ..< data.count]))
 
             if bytesRead == 0 {
                 break
             }
-            
+
             totalBytesRead += bytesRead
         }
     }
@@ -385,9 +385,9 @@ public class Socket {
         try stream.send(data)
         try stream.flush()
     }
-    
+
     static func accept(_ key: String) -> String? {
-        return try? Base64.encode(Hash.hash(.SHA1, message: (key + GUID).data))
+        return Base64.encode(Hash.hash(.SHA1, message: (key + GUID).data))
     }
-    
+
 }
