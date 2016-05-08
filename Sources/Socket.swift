@@ -144,7 +144,7 @@ public class Socket {
         try send(.Binary, data: convertible.data)
     }
 
-    public func close(_ code: CloseCode = .Normal, reason: String? = nil) throws {
+    public func close(_ code: CloseCode = .normal, reason: String? = nil) throws {
         if closeState == .ServerClose {
             return
         }
@@ -155,9 +155,7 @@ public class Socket {
         
         var data = Data()
 
-        if let code = code {
-            data += Data(number: code.code)
-        }
+        data += Data(number: code.code)
         
         if let reason = reason {
             data += reason
@@ -358,7 +356,7 @@ public class Socket {
                         throw try fail(Error.invalidCloseCode)
                     }
                 } else {
-                    try close(nil, reason: nil)
+                    try close(reason: nil)
                     try closeEventEmitter.emit((nil, nil))
                 }
             } else if self.closeState == .ServerClose {
