@@ -27,33 +27,6 @@
 @_exported import OpenSSL
 @_exported import UUID
 
-internal extension Data {
-    init<T>(number: T) {
-        let totalBytes = sizeof(T)
-        let valuePointer = UnsafeMutablePointer<T>(allocatingCapacity: 1)
-        valuePointer.pointee = number
-        let bytesPointer = UnsafeMutablePointer<Byte>(valuePointer)
-        var bytes = [UInt8](repeating: 0, count: totalBytes)
-        for j in 0 ..< totalBytes {
-            bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
-        }
-        valuePointer.deinitialize()
-        valuePointer.deallocateCapacity(1)
-        self.init(bytes)
-    }
-
-    func toInt(size: Int, offset: Int = 0) -> UIntMax {
-        guard size > 0 && size <= 8 && count >= offset+size else { return 0 }
-        let slice = self[startIndex.advanced(by: offset) ..< startIndex.advanced(by: offset+size)]
-        var result: UIntMax = 0
-        for (idx, byte) in slice.enumerated() {
-            let shiftAmount = UIntMax(size.toIntMax() - idx - 1) * 8
-            result += UIntMax(byte) << shiftAmount
-        }
-        return result
-    }
-}
-
 public final class Socket {
 
     public enum Error: ErrorProtocol {
@@ -156,9 +129,7 @@ public final class Socket {
             closeState = .ServerClose
         }
         
-        var data = Data()
-
-        data += Data(number: code.code)
+        var data = Data(number: code.code)
         
         if let reason = reason {
             data += reason
@@ -394,7 +365,7 @@ public final class Socket {
 }
 
 extension Socket: Hashable {
-    
+
     public var hashValue: Int {
         return uuid.rawValue.hashValue
     }
