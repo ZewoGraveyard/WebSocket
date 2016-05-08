@@ -25,6 +25,7 @@
 @_exported import Event
 @_exported import Base64
 @_exported import OpenSSL
+@_exported import UUID
 
 internal extension Data {
     init<T>(number: T) {
@@ -53,7 +54,7 @@ internal extension Data {
     }
 }
 
-public class Socket {
+public final class Socket {
 
     public enum Error: ErrorProtocol {
         case noFrame
@@ -104,6 +105,8 @@ public class Socket {
     private let pingEventEmitter = EventEmitter<Data>()
     private let pongEventEmitter = EventEmitter<Data>()
     private let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
+    
+    private let uuid = UUID()
 
     init(stream: Stream, mode: Mode, request: Request, response: Response) {
         self.stream = stream
@@ -388,4 +391,16 @@ public class Socket {
         return Base64.encode(Hash.hash(.SHA1, message: (key + GUID).data))
     }
 
+}
+
+extension Socket: Hashable {
+    
+    public var hashValue: Int {
+        return uuid.rawValue.hashValue
+    }
+    
+}
+
+public func==(lhs: Socket, rhs: Socket) -> Bool {
+    return lhs.uuid.rawValue == rhs.uuid.rawValue
 }
