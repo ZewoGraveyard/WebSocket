@@ -4,7 +4,7 @@ import XCTest
 @testable import WebSocketTestSuite
 
 XCTMain([
-    testCase(WebSocketTests.allTests)
+  testCase(WebSocketTests.allTests),
+  testCase(FrameTests.allTests),
 ])
-
 #endif
