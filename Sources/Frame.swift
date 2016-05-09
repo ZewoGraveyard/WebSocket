@@ -42,16 +42,16 @@
 //	+---------------------------------------------------------------+
 
 struct Frame {
-    
+
     private static let FinMask : UInt8 = 0b10000000
     private static let Rsv1Mask : UInt8 = 0b01000000
     private static let Rsv2Mask : UInt8 = 0b00100000
     private static let Rsv3Mask : UInt8 = 0b00010000
     private static let OpCodeMask : UInt8 = 0b00001111
-    
+
     private static let MaskMask : UInt8 = 0b10000000
     private static let PayloadLenMask : UInt8 = 0b01111111
-    
+
     enum OpCode: UInt8 {
         case Continuation	= 0x0
         case Text			= 0x1
@@ -62,12 +62,12 @@ struct Frame {
         case Pong			= 0xA
         // 0xB -> 0xF reserved
         case Invalid        = 0x10
-        
+
         var isControl: Bool {
             return self == .Close || self == .Ping || self == .Pong
         }
     }
-    
+
     var fin: Bool {
         return data[0] & Frame.FinMask != 0
     }
@@ -182,7 +182,9 @@ struct Frame {
         } else {
             self.data.append((masked ? 1 : 0) << 7 | (UInt8(payloadLength) & 0x7F))
         }
-
+        if masked {
+            self.data += maskKey
+        }
         self.data += data
     }
 
