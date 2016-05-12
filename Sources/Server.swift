@@ -30,9 +30,9 @@ public struct Server: Responder, Middleware {
         case NoResponse
     }
     
-    private let onConnect: Socket throws -> Void
+    private let onConnect: (Socket) throws -> Void
     
-    public init(onConnect: Socket throws -> Void) {
+    public init(onConnect: (Socket) throws -> Void) {
         self.onConnect =  onConnect
     }
     
