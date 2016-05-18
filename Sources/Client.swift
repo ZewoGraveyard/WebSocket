@@ -39,9 +39,9 @@ public struct Client {
     }
 
     private let client: Responder
-    private let onConnect: Socket throws -> Void
+    private let onConnect: (Socket) throws -> Void
 
-    public init(uri: URI, onConnect: Socket throws -> Void) throws {
+    public init(uri: URI, onConnect: (Socket) throws -> Void) throws {
       guard let scheme = uri.scheme where scheme == "ws" || scheme == "wss" else {
           throw ClientError.wsSchemeRequired
       }
@@ -52,7 +52,7 @@ public struct Client {
       try self.init(ssl:scheme == "wss", host: host, port: port, onConnect: onConnect)
     }
 
-    public init(ssl: Bool, host: String, port: Int, onConnect: Socket throws -> Void) throws {
+    public init(ssl: Bool, host: String, port: Int, onConnect: (Socket) throws -> Void) throws {
         let uri = URI(host: host, port: port, scheme: ssl ? "https" : "http")
         if ssl {
             self.client = try HTTPSClient.Client(uri: uri)
@@ -62,7 +62,7 @@ public struct Client {
         self.onConnect =  onConnect
     }
 
-    public func connectInBackground(path: String, failure: ErrorProtocol -> Void = Client.logError) {
+    public func connectInBackground(path: String, failure: (ErrorProtocol) -> Void = Client.logError) {
         co {
             do {
                 try self.connect(path)
