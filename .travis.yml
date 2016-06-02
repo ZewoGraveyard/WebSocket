@@ -16,6 +16,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
         sudo apt-get -qq update;
         sudo apt-get -y install libssl-dev;
+        sudo apt-get -y install uuid-dev;
     fi
 install:
   - eval "$(curl -sL https://raw.githubusercontent.com/Zewo/Zewo/5254525d9da56df29346fd76e99529c22034d61d/Scripts/install-swiftenv.sh)"

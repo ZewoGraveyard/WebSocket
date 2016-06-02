@@ -25,51 +25,23 @@
 @_exported import Event
 @_exported import Base64
 @_exported import OpenSSL
+@_exported import UUID
 
-internal extension Data {
-    init<T>(number: T) {
-        var totalBytes = sizeof(T)
-        let valuePointer = UnsafeMutablePointer<T>(allocatingCapacity: 1)
-        valuePointer.pointee = number
-        let bytesPointer = UnsafeMutablePointer<Byte>(valuePointer)
-        var bytes = [UInt8](repeating: 0, count: totalBytes)
-        let size = sizeof(UInt16)
-        if totalBytes > size { totalBytes = size }
-        for j in 0 ..< totalBytes {
-            bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
-        }
-        valuePointer.deinitialize()
-        valuePointer.deallocateCapacity(1)
-        self.init(bytes)
-    }
-
-    func toInt(size: Int, offset: Int = 0) -> UIntMax {
-        guard size > 0 && size <= 8 && count >= offset+size else { return 0 }
-        let slice = self[startIndex.advanced(by: offset) ..< startIndex.advanced(by: offset+size)]
-        var result: UIntMax = 0
-        for (idx, byte) in slice.enumerated() {
-            let shiftAmount = UIntMax(size.toIntMax() - idx - 1) * 8
-            result += UIntMax(byte) << shiftAmount
-        }
-        return result
-    }
-}
-
-public class Socket {
+public final class Socket {
 
     public enum Error: ErrorProtocol {
-        case NoFrame
-        case SmallData
-        case InvalidOpCode
-        case MaskedFrameFromServer
-        case UnaskedFrameFromClient
-        case ControlFrameNotFinal
-        case ControlFrameWithReservedBits
-        case ControlFrameInvalidLength
-        case ContinuationOutOfOrder
-        case DataFrameWithInvalidBits
-        case MaskKeyInvalidLength
-        case NoMaskKey
+        case noFrame
+        case invalidOpCode
+        case maskedFrameFromServer
+        case unaskedFrameFromClient
+        case controlFrameNotFinal
+        case controlFrameInvalidLength
+        case continuationOutOfOrder
+        case dataFrameWithInvalidBits
+        case maskKeyInvalidLength
+        case noMaskKey
+        case invalidUTF8Payload
+        case invalidCloseCode
     }
 
     private static let GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -98,15 +70,16 @@ public class Socket {
     private var state: State = .Header
     private var closeState: CloseState = .Open
 
-    private var initialFrame: Frame?
-    private var frames: [Frame] = []
-    private var buffer: Data = []
+    private var incompleteFrame: Frame?
+    private var continuationFrames: [Frame] = []
 
     private let binaryEventEmitter = EventEmitter<Data>()
     private let textEventEmitter = EventEmitter<String>()
     private let pingEventEmitter = EventEmitter<Data>()
     private let pongEventEmitter = EventEmitter<Data>()
     private let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
+    
+    private let uuid = UUID()
 
     init(stream: Stream, mode: Mode, request: Request, response: Response) {
         self.stream = stream
@@ -147,7 +120,7 @@ public class Socket {
         try send(.Binary, data: convertible.data)
     }
 
-    public func close(_ code: CloseCode = .Normal, reason: String? = nil) throws {
+    public func close(_ code: CloseCode = .normal, reason: String? = nil) throws {
         if closeState == .ServerClose {
             return
         }
@@ -155,13 +128,17 @@ public class Socket {
         if closeState == .Open {
             closeState = .ServerClose
         }
-
+        
         var data = Data(number: code.code)
-
+        
         if let reason = reason {
             data += reason
         }
 
+        if closeState == .ServerClose && code == .protocolError {
+            try stream.close()
+        }
+        
         try send(.Close, data: data)
 
         if closeState == .ClientClose {
@@ -188,14 +165,14 @@ public class Socket {
     func loop() throws {
         while !stream.closed {
             do {
-                let data = try stream.receive(upTo: 1024)
+                let data = try stream.receive(upTo: 4096)
                 try processData(data)
             } catch StreamError.closedStream {
                 break
             }
         }
         if closeState == .Open {
-            try closeEventEmitter.emit((code: .Abnormal, reason: nil))
+            try closeEventEmitter.emit((code: .abnormal, reason: nil))
         }
     }
 
@@ -218,245 +195,153 @@ public class Socket {
     }
 
     private func readBytes(_ data: Data) throws -> Int {
-
         if data.count == 0 {
             return 0
         }
 
+        var remainingData = data
+
+        repeat {
+            if incompleteFrame == nil {
+                incompleteFrame = Frame()
+            }
+
+            // Use ! because if let will add data to a copy of the frame
+            remainingData = incompleteFrame!.add(data: remainingData)
+
+            if incompleteFrame!.isComplete {
+                try validateFrame(incompleteFrame!)
+                try processFrame(incompleteFrame!)
+                incompleteFrame = nil
+            }
+        } while remainingData.count > 0
+
+        return data.count
+    }
+    
+    private func validateFrame(_ frame: Frame) throws {
         func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
-            try close(.ProtocolError)
+            try close(.protocolError)
             return error
         }
-
-        switch state {
-        case .Header:
-            guard data.count >= 2 else {
-                throw try fail(Error.SmallData)
+        
+        guard !frame.rsv1 && !frame.rsv2 && !frame.rsv3 else {
+            throw try fail(Error.dataFrameWithInvalidBits)
+        }
+        
+        guard frame.opCode != .Invalid else {
+            throw try fail(Error.invalidOpCode)
+        }
+        
+        guard !frame.masked || self.mode == .Server else {
+            throw try fail(Error.maskedFrameFromServer)
+        }
+        
+        guard frame.masked || self.mode == .Client else {
+            throw try fail(Error.unaskedFrameFromClient)
+        }
+        
+        if frame.opCode.isControl {
+            guard frame.fin else {
+                throw try fail(Error.controlFrameNotFinal)
             }
-
-            let fin = data[0] & Frame.FinMask != 0
-            let rsv1 = data[0] & Frame.Rsv1Mask != 0
-            let rsv2 = data[0] & Frame.Rsv2Mask != 0
-            let rsv3 = data[0] & Frame.Rsv3Mask != 0
-
-            guard let opCode = Frame.OpCode(rawValue: data[0] & Frame.OpCodeMask) else {
-                throw try fail(Error.InvalidOpCode)
+            
+            guard frame.payloadLength < 126 else {
+                throw try fail(Error.controlFrameInvalidLength)
             }
-
-            let masked = data[1] & Frame.MaskMask != 0
-
-            guard !masked || self.mode == .Server else {
-                throw try fail(Error.MaskedFrameFromServer)
+            
+            if frame.opCode == .Close && frame.payloadLength == 1 {
+                throw try fail(Error.controlFrameInvalidLength)
             }
-
-            guard masked || self.mode == .Client else {
-                throw try fail(Error.UnaskedFrameFromClient)
+        } else {
+            if frame.opCode == .Continuation && continuationFrames.isEmpty {
+                throw try fail(Error.continuationOutOfOrder)
             }
-
-            let payloadLength = data[1] & Frame.PayloadLenMask
-            var headerExtraLength = masked ? sizeof(UInt32) : 0
-
-            if payloadLength == 126 {
-                headerExtraLength += sizeof(UInt16)
-            } else if payloadLength == 127 {
-                headerExtraLength += sizeof(UInt64)
+            
+            if frame.opCode != .Continuation && !continuationFrames.isEmpty {
+                throw try fail(Error.continuationOutOfOrder)
             }
-
-            if opCode.isControl {
-                guard fin else {
-                    throw try fail(Error.ControlFrameNotFinal)
-                }
-
-                guard !rsv1 && !rsv2 && !rsv3 else {
-                    throw try fail(Error.ControlFrameWithReservedBits)
-                }
-
-                guard payloadLength < 126 else {
-                    throw try fail(Error.ControlFrameInvalidLength)
-                }
-            } else {
-                guard opCode != .Continuation || frames.count != 0 else {
-                    throw try fail(Error.ContinuationOutOfOrder)
-                }
-
-                guard opCode == .Continuation || frames.count == 0 else {
-                    throw try fail(Error.ContinuationOutOfOrder)
-                }
-
-                //				guard !rsv1 || pmdEnabled else { return fail("Data frames must only use rsv1 bit if permessage-deflate extension is on") }
-
-                guard !rsv2 && !rsv3 else {
-                    throw try fail(Error.DataFrameWithInvalidBits)
-                }
-            }
-
-            var _opCode = opCode
-
-            if !opCode.isControl && frames.count > 0 {
-                initialFrame = frames.last
-                _opCode = initialFrame!.opCode
-            } else {
-                buffer = []
-            }
-
-            let frame = Frame(
-                fin: fin,
-                rsv1: rsv1,
-                rsv2: rsv2,
-                rsv3: rsv3,
-                opCode: _opCode,
-                masked: masked,
-                payloadLength: UInt64(payloadLength),
-                headerExtraLength: headerExtraLength
-            )
-
-            frames.append(frame)
-
-            if headerExtraLength > 0 {
-                state = .HeaderExtra
-            } else if payloadLength > 0 {
-                state = .Payload
-            } else {
-                state = .Header
-                try processFrames()
-            }
-
-            return 2
-        case .HeaderExtra:
-            guard var frame = frames.last where data.count >= frame.headerExtraLength else {
-                return 0
-            }
-
-            var payloadLength = UIntMax(frame.payloadLength)
-
-            if payloadLength == 126 {
-                payloadLength = data.toInt(size: 2)
-            } else if payloadLength == 127 {
-                payloadLength = data.toInt(size: 8)
-            }
-
-            frame.payloadLength = payloadLength
-            frame.payloadRemainingLength = payloadLength
-
-            if frame.masked {
-                let maskOffset = max(Int(frame.headerExtraLength) - 4, 0)
-                let maskKey = Data(data[maskOffset ..< maskOffset+4])
-
-                guard maskKey.count == 4 else {
-                    throw try fail(Error.MaskKeyInvalidLength)
-                }
-
-                frame.maskKey = maskKey
-            }
-
-            if frame.payloadLength > 0 {
-                state = .Payload
-            } else {
-                state = .Header
-                try processFrames()
-            }
-
-            let ind = frames.endIndex - 1
-            if ind >= 0 && ind < frames.count {
-                frames[ind] = frame
-            }
-
-            return frame.headerExtraLength
-        case .Payload:
-            guard var frame = frames.last where data.count > 0 else {
-                return 0
-            }
-
-            let consumeLength = min(frame.payloadRemainingLength, UInt64(data.count))
-            var _data: Data
-
-            if self.mode == .Server {
-                guard !frame.maskKey.isEmpty else {
-                    throw try fail(Error.NoMaskKey)
-                }
-
-                _data = []
-
-                for byte in data[0..<Int(consumeLength)] {
-                    _data.append(byte ^ frame.maskKey[frame.maskOffset % 4])
-                    frame.maskOffset += 1
-                }
-            } else {
-                _data = Data(data[0..<Int(consumeLength)])
-            }
-
-            buffer += _data
-
-            let newPayloadRemainingLength = frame.payloadRemainingLength - consumeLength
-            frame.payloadRemainingLength = newPayloadRemainingLength
-
-            if newPayloadRemainingLength == 0 {
-                state = .Header
-                try processFrames()
-            }
-            let ind = frames.endIndex - 1
-            if ind >= 0 && ind < frames.count {
-                frames[ind] = frame
-            }
-            return Int(consumeLength)
+            
+            
         }
     }
 
-    private func processFrames() throws {
-        guard let frame = frames.last else {
-            throw Error.NoFrame
+    private func processFrame(_ frame: Frame) throws {
+        func fail(_ error: ErrorProtocol) throws -> ErrorProtocol {
+            try close(.protocolError)
+            return error
+        }
+        
+        if !frame.opCode.isControl {
+            continuationFrames.append(frame)
         }
 
-        guard frame.fin else {
+        if !frame.fin {
             return
         }
 
-        let buffer = self.buffer
+        var opCode = frame.opCode
 
-        self.frames.removeAll()
-        self.buffer.removeAll()
-        self.initialFrame = nil
 
-        switch frame.opCode {
+        if frame.opCode == .Continuation {
+            let firstFrame = continuationFrames.first!
+            opCode = firstFrame.opCode
+        }
+
+        switch opCode {
         case .Binary:
-            try binaryEventEmitter.emit(buffer)
+            try binaryEventEmitter.emit(continuationFrames.payload)
         case .Text:
-            try textEventEmitter.emit(try String(data: buffer))
+            if (try? String(data: continuationFrames.payload)) == nil {
+                throw try fail(Error.invalidUTF8Payload)
+            }
+            try textEventEmitter.emit(try String(data: continuationFrames.payload))
         case .Ping:
-            try pingEventEmitter.emit(buffer)
+            try pingEventEmitter.emit(frame.payload)
         case .Pong:
-            try pongEventEmitter.emit(buffer)
+            try pongEventEmitter.emit(frame.payload)
         case .Close:
             if self.closeState == .Open {
-                var rawCloseCode: Int?
+                var rawCloseCode: UInt16?
                 var closeReason: String?
-                var data = buffer
+                var data = frame.payload
 
                 if data.count >= 2 {
-                    rawCloseCode = Int(UInt16(Data(data.prefix(2)).toInt(size: 2)))
+                    rawCloseCode = UInt16(Data(data.prefix(2)).toInt(size: 2))
                     data.removeFirst(2)
 
                     if data.count > 0 {
-                        closeReason = try String(data: data)
+                        closeReason = try? String(data: data)
+                    }
+
+                    if data.count > 0 && closeReason == nil {
+                        throw try fail(Error.invalidUTF8Payload)
                     }
                 }
 
                 closeState = .ClientClose
 
-                let closeCode: CloseCode?
                 if let rawCloseCode = rawCloseCode {
-                    closeCode = CloseCode(code: rawCloseCode)
+                    let closeCode = CloseCode(code: rawCloseCode)
+                    if closeCode.isValid {
+                        try close(closeCode ?? .normal, reason: closeReason)
+                        try closeEventEmitter.emit((closeCode, closeReason))
+                    } else {
+                        throw try fail(Error.invalidCloseCode)
+                    }
                 } else {
-                    closeCode = nil
+                    try close(reason: nil)
+                    try closeEventEmitter.emit((nil, nil))
                 }
-
-                try close(closeCode ?? .Normal, reason: closeReason)
-                try closeEventEmitter.emit((closeCode, closeReason))
             } else if self.closeState == .ServerClose {
                 try stream.close()
             }
-        case .Continuation:
-            return
+        default:
+            break
+        }
+
+        if !frame.opCode.isControl {
+            continuationFrames.removeAll()
         }
     }
 
@@ -468,7 +353,7 @@ public class Socket {
             maskKey = []
         }
         let frame = Frame(opCode: opCode, data: data, maskKey: maskKey)
-        let data = frame.getData()
+        let data = frame.data
         try stream.send(data)
         try stream.flush()
     }
@@ -477,4 +362,16 @@ public class Socket {
         return Base64.encode(Hash.hash(.SHA1, message: (key + GUID).data))
     }
 
+}
+
+extension Socket: Hashable {
+
+    public var hashValue: Int {
+        return uuid.rawValue.hashValue
+    }
+    
+}
+
+public func==(lhs: Socket, rhs: Socket) -> Bool {
+    return lhs.uuid.rawValue == rhs.uuid.rawValue
 }
