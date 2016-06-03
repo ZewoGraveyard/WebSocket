@@ -157,7 +157,7 @@ public final class WebSocket {
         try send(.pong, data: convertible.data)
     }
 
-    func loop() throws {
+    public func start() throws {
         while !stream.closed {
             do {
                 let data = try stream.receive(upTo: 4096)
