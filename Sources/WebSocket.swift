@@ -76,7 +76,7 @@ public final class WebSocket {
     private let pongEventEmitter = EventEmitter<Data>()
     private let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
 
-    init(stream: Stream, mode: Mode) { //, request: Request, response: Response) {
+    public init(stream: Stream, mode: Mode) { //, request: Request, response: Response) {
         self.stream = stream
         self.mode = mode
         // self.request = request
@@ -353,7 +353,7 @@ public final class WebSocket {
         try stream.flush()
     }
 
-    static func accept(_ key: String) -> String? {
+    public static func accept(_ key: String) -> String? {
         return Base64.encode(sha1((key + GUID).data))
     }
 }
