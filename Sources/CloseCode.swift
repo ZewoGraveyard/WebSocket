@@ -38,7 +38,7 @@ public enum CloseCode: Equatable {
     case tryAgainLater
     case tlsHandshake
     case raw(UInt16)
-    
+
     init(code: UInt16) {
         switch code {
         case 1000: self = normal
@@ -58,7 +58,7 @@ public enum CloseCode: Equatable {
         default:   self = .raw(UInt16(code))
         }
     }
-    
+
     var code: UInt16 {
         switch self {
         case .normal:			return 1000

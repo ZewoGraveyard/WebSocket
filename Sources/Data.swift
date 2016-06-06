@@ -22,8 +22,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-extension Data {
+import POSIX
+#if os(OSX)
+    import Security
+#endif
 
+extension Data {
     init<T>(number: T) {
         let totalBytes = sizeof(T)
         let valuePointer = UnsafeMutablePointer<T>(allocatingCapacity: 1)
@@ -48,5 +52,30 @@ extension Data {
         }
         return result
     }
-    
+
+    init(randomBytes byteCount: Int) throws {
+        var bytes = [UInt8](repeating: 0, count: byteCount)
+
+        #if os(Linux)
+            let urandom = open("/dev/urandom", O_RDONLY)
+
+            if urandom == -1 {
+                try ensureLastOperationSucceeded()
+            }
+
+            if read(urandom, &bytes, bytes.count) == -1 {
+                try ensureLastOperationSucceeded()
+            }
+
+            if close(urandom) == -1 {
+                try ensureLastOperationSucceeded()
+            }
+        #else
+            if SecRandomCopyBytes(kSecRandomDefault, byteCount, &bytes) == -1 {
+                try ensureLastOperationSucceeded()
+            }
+        #endif
+
+        self.bytes = bytes
+    }
 }

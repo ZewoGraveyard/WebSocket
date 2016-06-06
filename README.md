@@ -8,29 +8,6 @@
 [![Travis][travis-badge]][travis-url]
 [![Codebeat][codebeat-badge]][codebeat-url]
 
-## Usage
-
-```swift
-import WebSocket
-import HTTPServer
-
-let webSocketServer = WebSocket.Server { webSocket in
-    print("connected")
-
-    webSocket.onBinary { data in
-        print("data \(data)")
-        try webSocket.send(data)
-    }
-
-    webSocket.onText { text in
-        print("data \(text)")
-        try webSocket.send(text)
-    }
-}
-
-try HTTPServer.Server(address: "127.0.0.1", port: 8180, responder: webSocketServer).start()
-```
-
 ## Installation
 
 ```swift
