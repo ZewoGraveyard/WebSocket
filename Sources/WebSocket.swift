@@ -83,22 +83,27 @@ public final class WebSocket {
         // self.response = response
     }
 
+    @discardableResult
     public func onBinary(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return binaryEventEmitter.addListener(listen: listen)
     }
 
+    @discardableResult
     public func onText(_ listen: EventListener<String>.Listen) -> EventListener<String> {
         return textEventEmitter.addListener(listen: listen)
     }
 
+    @discardableResult
     public func onPing(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return pingEventEmitter.addListener(listen: listen)
     }
 
+    @discardableResult
     public func onPong(_ listen: EventListener<Data>.Listen) -> EventListener<Data> {
         return pongEventEmitter.addListener(listen: listen)
     }
 
+    @discardableResult
     public func onClose(_ listen: EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
         return closeEventEmitter.addListener(listen: listen)
     }
