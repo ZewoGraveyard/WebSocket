@@ -119,7 +119,7 @@ struct Frame {
                 maskOffset += 1
             }
 
-            return Data(unmaskedPayloadData)
+            return unmaskedPayloadData
         }
 
         return Data(data[offset ..< data.count])
