@@ -113,27 +113,25 @@ struct Frame {
             var unmaskedPayloadData = Data(data[offset ..< data.count])
 
             var maskOffset = 0
+            let maskKey = self.maskKey
             for i in 0 ..< unmaskedPayloadData.count {
                 unmaskedPayloadData[i] ^= maskKey[maskOffset % 4]
                 maskOffset += 1
             }
 
-            return unmaskedPayloadData
+            return Data(unmaskedPayloadData)
         }
 
         return Data(data[offset ..< data.count])
     }
 
     var isComplete: Bool {
-        if data.count < 2 {
-            return false
-        } else if data.count < 4 && payloadLength == 126 {
-            return false
-        } else if data.count < 10 && payloadLength == 127 {
-            return false
+        switch data.count {
+        case 0..<2,
+             0..<4 where payloadLength == 126,
+             0..<10 where payloadLength == 127: return false
+        case let count: return UInt64(count) >= totalFrameSize
         }
-
-        return UInt64(data.count) >= totalFrameSize
     }
 
     private var extendedPayloadLength: UInt64 {
