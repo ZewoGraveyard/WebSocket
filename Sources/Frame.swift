@@ -41,15 +41,17 @@
 //	|                     Payload Data continued ...                |
 //	+---------------------------------------------------------------+
 
-struct Frame {
-    private static let finMask: UInt8 = 0b10000000
-    private static let rsv1Mask: UInt8 = 0b01000000
-    private static let rsv2Mask: UInt8 = 0b00100000
-    private static let rsv3Mask: UInt8 = 0b00010000
-    private static let opCodeMask: UInt8 = 0b00001111
+import Core
 
-    private static let maskMask: UInt8 = 0b10000000
-    private static let payloadLenMask: UInt8 = 0b01111111
+struct Frame {
+    fileprivate static let finMask: UInt8 = 0b10000000
+    fileprivate static let rsv1Mask: UInt8 = 0b01000000
+    fileprivate static let rsv2Mask: UInt8 = 0b00100000
+    fileprivate static let rsv3Mask: UInt8 = 0b00010000
+    fileprivate static let opCodeMask: UInt8 = 0b00001111
+
+    fileprivate static let maskMask: UInt8 = 0b10000000
+    fileprivate static let payloadLenMask: UInt8 = 0b01111111
 
     enum OpCode: UInt8 {
         case continuation	= 0x0
@@ -134,16 +136,16 @@ struct Frame {
         }
     }
 
-    private var extendedPayloadLength: UInt64 {
+    fileprivate var extendedPayloadLength: UInt64 {
         if payloadLength == 126 {
-            return data.toInt(size: 2, offset: 2)
+            return data.toInt(2, offset: 2)
         } else if payloadLength == 127 {
-            return data.toInt(size: 8, offset: 2)
+            return data.toInt(8, offset: 2)
         }
         return payloadLength
     }
 
-    private var maskKey: Data {
+    fileprivate var maskKey: Data {
         if payloadLength <= 125 {
             return Data(data[2 ..< 6])
         } else if payloadLength == 126 {
@@ -152,34 +154,35 @@ struct Frame {
         return Data(data[10 ..< 14])
     }
 
-    private var totalFrameSize: UInt64 {
+    fileprivate var totalFrameSize: UInt64 {
         let extendedPayloadExtraBytes = (payloadLength == 126 ? 2 : (payloadLength == 127 ? 8 : 0))
         let maskBytes = masked ? 4 : 0
         return UInt64(2 + extendedPayloadExtraBytes + maskBytes) + extendedPayloadLength
     }
 
-    private(set) var data = Data()
+    fileprivate(set) var data = Data()
 
     init() {}
 
     init(opCode: OpCode, data: Data, maskKey: Data) {
-        self.data.append((1 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | opCode.rawValue)
-
+        self.data.append((1 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | UInt8(opCode.rawValue))
+      
         let masked = maskKey.count == 4
         let payloadLength = UInt64(data.count)
 
         if payloadLength > UInt64(UInt16.max) {
             self.data.append((masked ? 1 : 0) << 7 | 127)
-            self.data += Data(number: payloadLength)
+            self.data = self.data + Data(number: payloadLength)
         } else if payloadLength > 125 {
             self.data.append((masked ? 1 : 0) << 7 | 126)
-            self.data += Data(number: UInt16(payloadLength))
+            self.data = self.data + Data(number: UInt16(payloadLength))
         } else {
             self.data.append((masked ? 1 : 0) << 7 | (UInt8(payloadLength) & 0x7F))
         }
         if masked {
-            self.data += maskKey
+            self.data = self.data + maskKey
 
+          
             var maskedData = data
 
             var maskOffset = 0
@@ -188,14 +191,14 @@ struct Frame {
                 maskOffset += 1
             }
 
-            self.data += maskedData
+            self.data = self.data + maskedData
         } else {
-            self.data += data
+            self.data = self.data + data
         }
     }
 
-    mutating func add(data: Data) -> Data {
-        self.data += data
+    mutating func add(_ data: Data) -> Data {
+        self.data = self.data + data
 
         if isComplete {
             // Int(totalFrameSize) cast is bad, will break spec max frame size of UInt64
@@ -214,7 +217,7 @@ extension Sequence where Self.Iterator.Element == Frame {
         var payload = Data()
 
         for frame in self {
-            payload += frame.payload
+            payload = payload + frame.payload
         }
 
         return payload
