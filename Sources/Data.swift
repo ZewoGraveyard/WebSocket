@@ -23,9 +23,11 @@
 // SOFTWARE.
 
 import Core
-import POSIX
 #if os(macOS)
     import Security
+#endif
+#if os(Linux)
+    import Glibc
 #endif
 
 extension Data {
