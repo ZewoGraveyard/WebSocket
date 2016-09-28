@@ -8,6 +8,8 @@
 [![Travis][travis-badge]][travis-url]
 [![Codebeat][codebeat-badge]][codebeat-url]
 
+> :warning: This module contains no networking. To create a WebSocket Server, see [WebSocketServer](https://github.com/Zewo/WebSocketServer). To create a WebSocket Client, see [WebSocketClient](https://github.com/Zewo/WebSocketClient).
+
 ## Installation
 
 ```swift
