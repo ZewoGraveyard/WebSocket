@@ -76,7 +76,7 @@ struct Frame {
         return UInt64(data[1] & Frame.payloadLenMask)
     }
 
-    var payload: Buffer {
+    var payload: Data {
         var offset = 2
 
         if payloadLength == 126 {
@@ -98,7 +98,7 @@ struct Frame {
                 maskOffset += 1
             }
 
-            return Buffer(unmaskedPayloadData)
+            return Data(unmaskedPayloadData)
         }
 
         return data.subdata(in: offset..<data.count)
@@ -124,7 +124,7 @@ struct Frame {
         return payloadLength
     }
 
-    fileprivate var maskKey: Buffer {
+    fileprivate var maskKey: Data {
         if payloadLength <= 125 {
             return data.subdata(in:2..<6)
         } else if payloadLength == 126 {
@@ -139,13 +139,13 @@ struct Frame {
         return UInt64(2 + extendedPayloadExtraBytes + maskBytes) + extendedPayloadLength
     }
 
-    fileprivate(set) var data = Buffer()
+    fileprivate(set) var data = Data()
 
     init() {}
 
-    init(opCode: OpCode, data: BufferRepresentable, maskKey: BufferRepresentable) {
-        let data = data.buffer
-        let maskKey = maskKey.buffer
+    init(opCode: OpCode, data: DataRepresentable, maskKey: DataRepresentable) {
+        let data = data.data
+        let maskKey = maskKey.data
 
         let op = (1 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | opCode.rawValue
         self.data.append(op)
@@ -156,10 +156,10 @@ struct Frame {
 
         if payloadLength > UInt64(UInt16.max) {
             self.data.append(mask << 7 | 127)
-            self.data.append(Buffer(number: payloadLength))
+            self.data.append(Data(number: payloadLength))
         } else if payloadLength > 125 {
             self.data.append(mask << 7 | 126)
-            self.data.append(Buffer(number: UInt16(payloadLength)))
+            self.data.append(Data(number: UInt16(payloadLength)))
         } else {
             self.data.append(mask << 7 | (UInt8(payloadLength) & 0x7F))
         }
@@ -181,7 +181,7 @@ struct Frame {
         }
     }
 
-    mutating func add(_ data: Buffer) -> Buffer {
+    mutating func add(_ data: Data) -> Data {
         self.data.append(data)
 
         if isComplete {
@@ -191,14 +191,14 @@ struct Frame {
             return remainingData
         }
 
-        return Buffer()
+        return Data()
     }
 
 }
 
 extension Sequence where Self.Iterator.Element == Frame {
-    var payload: Buffer {
-        var payload = Buffer()
+    var payload: Data {
+        var payload = Data()
 
         for frame in self {
             payload.append(frame.payload)
