@@ -76,7 +76,7 @@ struct Frame {
         return UInt64(data[1] & Frame.payloadLenMask)
     }
 
-    var payload: Data {
+    var payload: Buffer {
         var offset = 2
 
         if payloadLength == 126 {
@@ -98,10 +98,10 @@ struct Frame {
                 maskOffset += 1
             }
 
-            return Data(unmaskedPayloadData)
+            return Buffer(unmaskedPayloadData)
         }
 
-        return data.subdata(in: offset..<data.count)
+        return data[offset..<data.count]
     }
 
     var isComplete: Bool {
@@ -124,13 +124,13 @@ struct Frame {
         return payloadLength
     }
 
-    fileprivate var maskKey: Data {
+    fileprivate var maskKey: Buffer {
         if payloadLength <= 125 {
-            return data.subdata(in:2..<6)
+            return data[2..<6]
         } else if payloadLength == 126 {
-            return data.subdata(in:4..<8)
+            return data[4..<8]
         }
-        return data.subdata(in:10 ..< 14)
+        return data[10..<14]
     }
 
     fileprivate var totalFrameSize: UInt64 {
@@ -139,13 +139,13 @@ struct Frame {
         return UInt64(2 + extendedPayloadExtraBytes + maskBytes) + extendedPayloadLength
     }
 
-    fileprivate(set) var data = Data()
+    fileprivate(set) var data = Buffer()
 
     init() {}
 
-    init(opCode: OpCode, data: DataRepresentable, maskKey: DataRepresentable) {
-        let data = data.data
-        let maskKey = maskKey.data
+    init(opCode: OpCode, data: BufferRepresentable, maskKey: BufferRepresentable) {
+        let data = data.buffer
+        let maskKey = maskKey.buffer
 
         let op = (1 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | opCode.rawValue
         self.data.append(op)
@@ -156,10 +156,10 @@ struct Frame {
 
         if payloadLength > UInt64(UInt16.max) {
             self.data.append(mask << 7 | 127)
-            self.data.append(Data(number: payloadLength))
+            self.data.append(Buffer(number: payloadLength))
         } else if payloadLength > 125 {
             self.data.append(mask << 7 | 126)
-            self.data.append(Data(number: UInt16(payloadLength)))
+            self.data.append(Buffer(number: UInt16(payloadLength)))
         } else {
             self.data.append(mask << 7 | (UInt8(payloadLength) & 0x7F))
         }
@@ -181,24 +181,24 @@ struct Frame {
         }
     }
 
-    mutating func add(_ data: Data) -> Data {
+    mutating func add(_ data: Buffer) -> Buffer {
         self.data.append(data)
 
         if isComplete {
             // Int(totalFrameSize) cast is bad, will break spec max frame size of UInt64
-            let remainingData = self.data.subdata(in: Int(totalFrameSize)..<self.data.count)
-            self.data = self.data.subdata(in: 0..<Int(totalFrameSize))
+            let remainingData = self.data[Int(totalFrameSize)..<self.data.count]
+            self.data = self.data[0..<Int(totalFrameSize)]
             return remainingData
         }
 
-        return Data()
+        return Buffer()
     }
 
 }
 
 extension Sequence where Self.Iterator.Element == Frame {
-    var payload: Data {
-        var payload = Data()
+    var payload: Buffer {
+        var payload = Buffer()
 
         for frame in self {
             payload.append(frame.payload)

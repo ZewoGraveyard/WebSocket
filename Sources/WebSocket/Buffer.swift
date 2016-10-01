@@ -6,7 +6,7 @@ import Core
     import Security
 #endif
 
-extension Data {
+extension Buffer {
     public mutating func append(_ byte: UInt8) {
         var byte = byte
         self.append(&byte, count: 1)
@@ -30,13 +30,13 @@ extension Data {
             for i in 0..<totalBytes {
                 bytes[totalBytes - 1 - i] = (bytes + i).pointee
             }
-            return Data(UnsafeBufferPointer(start: bytes, count: totalBytes))
+            return Buffer(UnsafeBufferPointer(start: bytes, count: totalBytes))
         }
     }
 
     func toInt(_ size: Int, offset: Int = 0) -> UIntMax {
         guard size > 0 && size <= 8 && count >= offset+size else { return 0 }
-        let slice = self.subdata(in:startIndex.advanced(by: offset) ..< startIndex.advanced(by: offset+size))
+        let slice = self[offset..<offset+size]
         var result: UIntMax = 0
         for (idx, byte) in slice.enumerated() {
             let shiftAmount = UIntMax(size.toIntMax() - idx - 1) * 8
