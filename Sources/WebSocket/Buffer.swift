@@ -6,7 +6,7 @@ import Core
     import Security
 #endif
 
-extension Data {
+extension Buffer {
     public mutating func append(_ byte: UInt8) {
         var byte = byte
         self.append(&byte, count: 1)
@@ -30,7 +30,7 @@ extension Data {
             for i in 0..<totalBytes {
                 bytes[totalBytes - 1 - i] = (bytes + i).pointee
             }
-            return Data(UnsafeBufferPointer(start: bytes, count: totalBytes))
+            return Buffer(bytes: UnsafeBufferPointer(start: bytes, count: totalBytes))
         }
     }
 

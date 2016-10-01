@@ -4,10 +4,10 @@ import Core
 
 public class FrameTests : XCTestCase {
     func testMaskPong() {
-        let maskKey = Data([0x39, 0xfa, 0xab, 0x35])
-        let frame = Frame(opCode: .pong, data: Data(), maskKey: maskKey)
+        let maskKey = Buffer([0x39, 0xfa, 0xab, 0x35])
+        let frame = Frame(opCode: .pong, data: Buffer.empty, maskKey: maskKey)
         let data = frame.data
-        var pass = Data()
+        var pass = Buffer.empty
         pass.append(0b10001010)
         pass.append(0b10000000)
         pass.append(maskKey)
@@ -15,10 +15,10 @@ public class FrameTests : XCTestCase {
     }
 
     func testMaskText() {
-      let maskKey = Data([0x39, 0xfa, 0xab, 0x35])
+      let maskKey = Buffer([0x39, 0xfa, 0xab, 0x35])
       let frame = Frame(opCode: .text, data: "Hello", maskKey: maskKey)
       let data = frame.data
-      let pass = Data([0x81, 0x85, 0x39, 0xfa, 0xab, 0x35, 0x71, 0x9f, 0xc7, 0x59, 0x56])
+      let pass = Buffer([0x81, 0x85, 0x39, 0xfa, 0xab, 0x35, 0x71, 0x9f, 0xc7, 0x59, 0x56])
       XCTAssert(data == pass, "Frame does not match with text case")
     }
 }
