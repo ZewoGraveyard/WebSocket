@@ -1,14 +1,4 @@
-// Originally based on CryptoSwift by Marcin Krzyżanowski <marcin.krzyzanowski@gmail.com>
-// Copyright (C) 2014 Marcin Krzyżanowski <marcin.krzyzanowski@gmail.com>
-// This software is provided 'as-is', without any express or implied warranty.
-//
-// In no event will the authors be held liable for any damages arising from the use of this software.
-//
-// Permission is granted to anyone to use this software for any purpose,including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
-//
-// - The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation is required.
-// - Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
-// - This notice may not be removed or altered from any source or binary distribution.
+import Core
 
 func rotateLeft(_ value: UInt8, count: UInt8) -> UInt8 {
     return ((value << count) & 0xFF) | (value >> (8 - count))
@@ -43,32 +33,32 @@ func reverseBytes(_ value: UInt32) -> UInt32 {
 }
 
 func arrayOfBytes<T>(_ value: T, length: Int? = nil) -> [UInt8] {
-    let totalBytes = length ?? sizeof(T)
+    let totalBytes = length ?? MemoryLayout<T>.size
 
-    let valuePointer = UnsafeMutablePointer<T>(allocatingCapacity: 1)
+    let valuePointer = UnsafeMutablePointer<T>.allocate(capacity: 1)
     valuePointer.pointee = value
-
-    let bytesPointer = UnsafeMutablePointer<UInt8>(valuePointer)
-    var bytes = [UInt8](repeating: 0, count: totalBytes)
-    for j in 0..<min(sizeof(T),totalBytes) {
-        bytes[totalBytes - 1 - j] = (bytesPointer + j).pointee
+    defer {
+        valuePointer.deinitialize()
+        valuePointer.deallocate(capacity: 1)
     }
 
-    valuePointer.deinitialize(count: 1)
-    valuePointer.deallocateCapacity(1)
-
-    return bytes
+    return valuePointer.withMemoryRebound(to: UInt8.self, capacity: totalBytes) { bytes in
+        for i in 0..<min(MemoryLayout<T>.size, totalBytes) {
+            bytes[totalBytes - 1 - i] = (bytes + i).pointee
+        }
+        return Array(UnsafeBufferPointer(start: bytes, count: totalBytes))
+    }
 }
 
 func toUInt32Array(_ slice: ArraySlice<UInt8>) -> Array<UInt32> {
     var result = Array<UInt32>()
     result.reserveCapacity(16)
-    for idx in stride(from: slice.startIndex, to: slice.endIndex, by: sizeof(UInt32)) {
-        let val1:UInt32 = (UInt32(slice[idx.advanced(by: 3)]) << 24)
-        let val2:UInt32 = (UInt32(slice[idx.advanced(by: 2)]) << 16)
-        let val3:UInt32 = (UInt32(slice[idx.advanced(by: 1)]) << 8)
-        let val4:UInt32 = UInt32(slice[idx])
-        let val:UInt32 = val1 | val2 | val3 | val4
+    for index in stride(from: slice.startIndex, to: slice.endIndex, by: MemoryLayout<UInt32>.size) {
+        let val1 = (UInt32(slice[index + 3]) << 24)
+        let val2 = (UInt32(slice[index + 2]) << 16)
+        let val3 = (UInt32(slice[index + 1]) << 8)
+        let val4 = UInt32(slice[index])
+        let val = val1 | val2 | val3 | val4
         result.append(val)
     }
 
@@ -78,16 +68,15 @@ func toUInt32Array(_ slice: ArraySlice<UInt8>) -> Array<UInt32> {
 let size: Int = 20 // 160 / 8
 let h: [UInt32] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0]
 
-func sha1(_ data: Data) -> Data {
+func sha1(_ data: [UInt8]) -> [UInt8] {
     let len = 64
-    let originalMessage = data.bytes
-    var tmpMessage = data.bytes
+    var message = data
 
     // Step 1. Append Padding Bits
-    tmpMessage.append(0x80) // append one bit (UInt8 with one bit) to message
+    message.append(0x80) // append one bit (UInt8 with one bit) to message
 
     // append "0" bit until message length in bits ≡ 448 (mod 512)
-    var msgLength = tmpMessage.count
+    var msgLength = message.count
     var counter = 0
 
     while msgLength % len != (len - 8) {
@@ -95,16 +84,19 @@ func sha1(_ data: Data) -> Data {
         msgLength += 1
     }
 
-    tmpMessage += Array<UInt8>(repeating: 0, count: counter)
+    for _ in 0..<counter {
+        message.append(0)
+    }
+
     // hash values
     var hh = h
 
     // append message length, in a 64-bit big-endian integer. So now the message length is a multiple of 512 bits.
-    tmpMessage += arrayOfBytes(originalMessage.count * 8, length: 64 / 8)
+    message.append(contentsOf: arrayOfBytes(data.count * 8, length: 64 / 8))
 
     // Process the message in successive 512-bit chunks:
     let chunkSizeBytes = 512 / 8 // 64
-    for chunk in BytesSequence(chunkSize: chunkSizeBytes, data: tmpMessage) {
+    for chunk in BytesSequence(chunkSize: chunkSizeBytes, data: message) {
         // break chunk into sixteen 32-bit words M[j], 0 ≤ j ≤ 15, big-endian
         // Extend the sixteen 32-bit words into eighty 32-bit words:
         var M:[UInt32] = [UInt32](repeating: 0, count: 80)
@@ -115,10 +107,8 @@ func sha1(_ data: Data) -> Data {
                 let end = start + sizeofValue(M[x])
                 let le = toUInt32Array(chunk[start..<end])[0]
                 M[x] = le.bigEndian
-                break
             default:
                 M[x] = rotateLeft(M[x-3] ^ M[x-8] ^ M[x-14] ^ M[x-16], count: 1)
-                break
             }
         }
 
@@ -137,19 +127,15 @@ func sha1(_ data: Data) -> Data {
             case 0...19:
                 f = (B & C) | ((~B) & D)
                 k = 0x5A827999
-                break
             case 20...39:
                 f = B ^ C ^ D
                 k = 0x6ED9EBA1
-                break
             case 40...59:
                 f = (B & C) | (B & D) | (C & D)
                 k = 0x8F1BBCDC
-                break
             case 60...79:
                 f = B ^ C ^ D
                 k = 0xCA62C1D6
-                break
             default:
                 break
             }
@@ -178,7 +164,7 @@ func sha1(_ data: Data) -> Data {
         result += [UInt8(item & 0xff), UInt8((item >> 8) & 0xff), UInt8((item >> 16) & 0xff), UInt8((item >> 24) & 0xff)]
     }
 
-    return Data(result)
+    return result
 }
 
 struct BytesSequence: Sequence {
@@ -191,9 +177,9 @@ struct BytesSequence: Sequence {
         return AnyIterator {
             var end: Int
             if self.chunkSize < self.data.count - offset {
-              end = self.chunkSize
+                end = self.chunkSize
             } else {
-              end = self.data.count - offset
+                end = self.data.count - offset
             }
             let result = self.data[offset ..< offset + end]
             offset += result.count
