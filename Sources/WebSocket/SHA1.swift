@@ -1,4 +1,4 @@
-import Core
+import Axis
 
 func rotateLeft(_ value: UInt8, count: UInt8) -> UInt8 {
     return ((value << count) & 0xFF) | (value >> (8 - count))

@@ -1,4 +1,4 @@
-import Core
+import Axis
 import struct Foundation.Data
 
 public enum WebSocketError : Error {
@@ -39,7 +39,7 @@ public final class WebSocket {
 
     public let mode: Mode
 
-    fileprivate let stream: Core.Stream
+    fileprivate let stream: Axis.Stream
     fileprivate var state: State = .header
     fileprivate var closeState: CloseState = .open
 
@@ -52,7 +52,7 @@ public final class WebSocket {
     fileprivate let pongEventEmitter = EventEmitter<Buffer>()
     fileprivate let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
 
-    public init(stream: Core.Stream, mode: Mode) {
+    public init(stream: Axis.Stream, mode: Mode) {
         self.stream = stream
         self.mode = mode
     }

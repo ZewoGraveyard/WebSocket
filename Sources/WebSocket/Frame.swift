@@ -17,7 +17,7 @@
 //	|                     Payload Data continued ...                |
 //	+---------------------------------------------------------------+
 
-import Core
+import Axis
 
 struct Frame {
     fileprivate static let finMask: UInt8 = 0b10000000
