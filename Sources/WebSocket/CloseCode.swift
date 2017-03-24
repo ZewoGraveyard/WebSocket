@@ -70,3 +70,10 @@ public enum CloseCode : Equatable {
 public func == (lhs: CloseCode, rhs: CloseCode) -> Bool {
     return lhs.code == rhs.code
 }
+
+public struct Close {
+    
+    public var code: CloseCode?
+    public var reason: String?
+    
+}
