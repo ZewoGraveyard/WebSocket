@@ -50,7 +50,7 @@ public final class WebSocket {
     fileprivate let textEventEmitter = EventEmitter<String>()
     fileprivate let pingEventEmitter = EventEmitter<Buffer>()
     fileprivate let pongEventEmitter = EventEmitter<Buffer>()
-    fileprivate let closeEventEmitter = EventEmitter<(code: CloseCode?, reason: String?)>()
+    fileprivate let closeEventEmitter = EventEmitter<Close>()
     
     fileprivate let connectionTimeout: Double
 
@@ -61,27 +61,27 @@ public final class WebSocket {
     }
 
     @discardableResult
-    public func onBinary(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
+    public func didReceiveBinary(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
         return binaryEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onText(_ listen: @escaping EventListener<String>.Listen) -> EventListener<String> {
+    public func didReceiveText(_ listen: @escaping EventListener<String>.Listen) -> EventListener<String> {
         return textEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onPing(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
+    public func didReceivePing(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
         return pingEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onPong(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
+    public func didReceivePong(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
         return pongEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onClose(_ listen: @escaping EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
+    public func didClose(_ listen: @escaping EventListener<Close>.Listen) -> EventListener<Close> {
         return closeEventEmitter.addListener(listen: listen)
     }
 
@@ -149,7 +149,8 @@ public final class WebSocket {
             }
         }
         if closeState == .open {
-            try closeEventEmitter.emit((code: .abnormal, reason: nil))
+            let close = Close(code: .abnormal, reason: nil)
+            try closeEventEmitter.emit(close)
         }
     }
 
@@ -302,13 +303,14 @@ public final class WebSocket {
                     let closeCode = CloseCode(code: rawCloseCode)
                     if closeCode.isValid {
                         try close(closeCode , reason: closeReason)
-                        try closeEventEmitter.emit((closeCode, closeReason))
+                        let closeEvent = Close(code: closeCode, reason: closeReason)
+                        try closeEventEmitter.emit(closeEvent)
                     } else {
                         throw try fail(WebSocketError.invalidCloseCode)
                     }
                 } else {
                     try close(reason: nil)
-                    try closeEventEmitter.emit((nil, nil))
+                    try closeEventEmitter.emit(Close(code: nil, reason: nil))
                 }
             } else if self.closeState == .serverClose {
                 stream.close()
