@@ -61,27 +61,27 @@ public final class WebSocket {
     }
 
     @discardableResult
-    public func onBinary(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
+    public func didReceiveBinary(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
         return binaryEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onText(_ listen: @escaping EventListener<String>.Listen) -> EventListener<String> {
+    public func didReceiveText(_ listen: @escaping EventListener<String>.Listen) -> EventListener<String> {
         return textEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onPing(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
+    public func didReceivePing(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
         return pingEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onPong(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
+    public func didReceivePong(_ listen: @escaping EventListener<Buffer>.Listen) -> EventListener<Buffer> {
         return pongEventEmitter.addListener(listen: listen)
     }
 
     @discardableResult
-    public func onClose(_ listen: @escaping EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
+    public func didClose(_ listen: @escaping EventListener<(code: CloseCode?, reason: String?)>.Listen) -> EventListener<(code: CloseCode?, reason: String?)> {
         return closeEventEmitter.addListener(listen: listen)
     }
 
